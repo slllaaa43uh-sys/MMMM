@@ -538,16 +538,19 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
                 <p className="text-xs text-gray-500 mt-1">{t('scope_category_desc')}</p>
               </button>
 
-              <button onClick={() => handlePublishScopeChange('urgent_page')} className={`w-full p-4 rounded-xl border-2 transition-all text-start flex justify-between items-center ${publishScope === 'urgent_page' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-800 hover:border-red-300'}`}>
-                <div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
-                        {t('scope_urgent_page')}
-                        <Zap size={14} className="text-red-500 fill-current" />
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-1">{urgentTag ? urgentTag : t('scope_urgent_desc')}</p>
-                </div>
-                {publishScope === 'urgent_page' && urgentTag && <Check size={18} className="text-red-600" />}
-              </button>
+              {/* Only show Urgent Page option if it is a Job Post */}
+              {isJobPost && (
+                <button onClick={() => handlePublishScopeChange('urgent_page')} className={`w-full p-4 rounded-xl border-2 transition-all text-start flex justify-between items-center ${publishScope === 'urgent_page' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-800 hover:border-red-300'}`}>
+                    <div>
+                        <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                            {t('scope_urgent_page')}
+                            <Zap size={14} className="text-red-500 fill-current" />
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-1">{urgentTag ? urgentTag : t('scope_urgent_desc')}</p>
+                    </div>
+                    {publishScope === 'urgent_page' && urgentTag && <Check size={18} className="text-red-600" />}
+                </button>
+              )}
             </div>
           </div>
 

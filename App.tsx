@@ -20,20 +20,18 @@ import SuggestedList, { SuggestedItem } from './components/SuggestedList';
 import SuggestedUsersView from './components/SuggestedUsersView';
 import PostDetailView, { clearPostDetailsCache } from './components/PostDetailView';
 import PostUploadIndicator from './components/PostUploadIndicator';
-import SplashScreen from './components/SplashScreen';
 import WelcomeCelebration from './components/WelcomeCelebration';
 import GlobalJobsView from './components/GlobalJobsView'; 
 import UrgentJobsView from './components/UrgentJobsView';
 import CVBuilderWizard from './components/CVBuilderWizard';
 import AIChatView from './components/AIChatView';
-import SearchView from './components/SearchView'; // Import SearchView
+import SearchView from './components/SearchView'; 
 import { Post } from './types';
 import { API_BASE_URL } from './constants';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
-  const [showSplash, setShowSplash] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -73,24 +71,19 @@ const AppContent: React.FC = () => {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: true });
     }
   }, []);
 
   useEffect(() => {
-    if (token && !showSplash) {
+    if (token) {
       const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
       if (!hasSeenWelcome) {
         setTimeout(() => setShowWelcome(true), 500);
       }
     }
-  }, [token, showSplash]);
+  }, [token]);
 
   useEffect(() => {
     const initFirebaseNotifications = async () => {
@@ -575,7 +568,6 @@ const AppContent: React.FC = () => {
     fetchData();
   }, [token, currentLocation]); // activeTab removed to prevent unnecessary re-fetches
 
-  if (showSplash) return <SplashScreen />;
   if (!token) return <LoginPage onLoginSuccess={setToken} />;
 
   const isAnyModalOpen = isCreateModalOpen || isCreateStoryOpen || reportData.isOpen || isLocationDrawerOpen || isCVWizardOpen || isAIChatOpen || isSearchOpen;
