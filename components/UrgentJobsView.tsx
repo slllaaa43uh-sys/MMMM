@@ -53,6 +53,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
+            const currentUserId = localStorage.getItem('userId');
             
             // Prepare location params
             const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
@@ -67,8 +68,13 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
                 const data = await response.json();
                 const rawPosts = data.posts || [];
                 
-                // Map directly without client-side filtering
-                const mappedPosts = rawPosts.map((p: any) => {
+                // FILTER: Exclude my own posts (حل مشكلة ظهور منشوراتك)
+                const filteredPosts = rawPosts.filter((p: any) => {
+                    const postUserId = p.user?._id || p.user?.id || p.user;
+                    return String(postUserId) !== String(currentUserId);
+                });
+                
+                const mappedPosts = filteredPosts.map((p: any) => {
                     // Logic to display location correctly on the card
                     let locationString = t('location_general');
                     
@@ -95,11 +101,12 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
                         shares: 0,
                         isFeatured: true,
                         category: p.category || t('urgent_label'),
-                        location: locationString, // Display the calculated location
+                        location: locationString, 
                         title: p.title,
                         jobStatus: 'open',
                         contactPhone: p.contactPhone,
-                        contactEmail: p.contactEmail, // ADDED CONTACT EMAIL HERE
+                        contactEmail: p.contactEmail, 
+                        contactMethods: p.contactMethods || [], // Ensure methods are passed so button works correctly
                         specialTag: p.specialTag 
                     };
                 });
@@ -113,7 +120,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
     };
 
     fetchUrgentJobs();
-  }, [currentLocation]); // Depend ONLY on location, removed language and t
+  }, [currentLocation, language, t]); 
 
   const handleTagClick = (tagKey: string) => {
       // Special case for "All" button
