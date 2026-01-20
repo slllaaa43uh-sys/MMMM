@@ -20,7 +20,6 @@ import SuggestedList, { SuggestedItem } from './components/SuggestedList';
 import SuggestedUsersView from './components/SuggestedUsersView';
 import PostDetailView, { clearPostDetailsCache } from './components/PostDetailView';
 import PostUploadIndicator from './components/PostUploadIndicator';
-import WelcomeCelebration from './components/WelcomeCelebration';
 import GlobalJobsView from './components/GlobalJobsView'; 
 import UrgentJobsView from './components/UrgentJobsView';
 import CVBuilderWizard from './components/CVBuilderWizard';
@@ -32,7 +31,6 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
-  const [showWelcome, setShowWelcome] = useState(false);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
@@ -75,15 +73,6 @@ const AppContent: React.FC = () => {
       navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: true });
     }
   }, []);
-
-  useEffect(() => {
-    if (token) {
-      const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-      if (!hasSeenWelcome) {
-        setTimeout(() => setShowWelcome(true), 500);
-      }
-    }
-  }, [token]);
 
   // === FIREBASE NOTIFICATION INIT ===
   useEffect(() => {
@@ -151,11 +140,6 @@ const AppContent: React.FC = () => {
     const intervalId = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(intervalId);
   }, [token]);
-
-  const handleCloseWelcome = () => {
-    setShowWelcome(false);
-    localStorage.setItem('hasSeenWelcome', 'true');
-  };
 
   const toggleDarkMode = () => {
     document.documentElement.classList.add('disable-transitions');
@@ -597,7 +581,6 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] dark:bg-black max-w-md mx-auto shadow-2xl overflow-hidden relative transition-colors duration-200">
-      {showWelcome && <WelcomeCelebration onClose={handleCloseWelcome} />}
       
       {pendingPost && !pendingPost.isShort && (
          <PostUploadIndicator 

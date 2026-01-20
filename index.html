@@ -188,56 +188,7 @@
 </script>
 </head>
   <body>
-    <div id="root">
-      <!-- STATIC PRE-RENDERED SPLASH SCREEN -->
-      <div class="fixed inset-0 z-[9999] bg-white dark:bg-black flex flex-col items-center justify-between pb-10 pt-safe">
-        
-        <!-- Top Spacer -->
-        <div class="flex-1"></div>
-  
-        <!-- Center Logo with Fallback Logic -->
-        <div class="flex-1 flex flex-col items-center justify-center">
-          <div class="w-32 h-32 rounded-full mb-6 relative flex items-center justify-center">
-             <!-- Pure SVG Logo -->
-             <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-xl">
-                <defs>
-                  <linearGradient id="g" x1="0" y1="0" x2="200" y2="200">
-                    <stop offset="0%" stop-color="#2563EB"/>
-                    <stop offset="50%" stop-color="#06B6D4"/>
-                    <stop offset="100%" stop-color="#22C55E"/>
-                  </linearGradient>
-                </defs>
-                <path d="M100 20L170 60V140L100 180L30 140V60L100 20Z" fill="url(#g)"/>
-                <path d="M65 85V135H85V105L100 120L115 105V135H135V85H115L100 100L85 85H65Z" fill="white"/>
-             </svg>
-          </div>
-          <!-- Font inheritance from body (Cairo) -->
-          <h1 class="text-2xl font-black text-gray-900 dark:text-white tracking-tight">مهنتي لي</h1>
-        </div>
-  
-        <!-- Bottom Developer Info -->
-        <div class="flex-1 flex flex-col justify-end items-center w-full">
-          <div class="flex flex-col items-center gap-3">
-            <span class="text-gray-400 text-[10px] tracking-widest font-medium uppercase">From</span>
-            
-            <div class="flex items-center gap-2.5">
-              <div class="relative w-8 h-8 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-gray-300 dark:text-gray-700 absolute">
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                  </svg>
-                  <div class="w-4 h-4 bg-gradient-to-br from-orange-500 to-red-600 rounded-sm rotate-45 shadow-sm"></div>
-              </div>
-              
-              <span class="text-lg font-bold text-gray-800 dark:text-gray-200 tracking-wide">
-                مهدلي
-              </span>
-            </div>
-          </div>
-        </div>
-  
-      </div>
-    </div>
-    
+    <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
