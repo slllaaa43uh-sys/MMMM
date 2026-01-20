@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon } from 'lucide-react';
+import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
 
@@ -187,6 +186,50 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       setImgErrorState(prev => ({ ...prev, [id]: true }));
   };
 
+  const handleSubscribe = async () => {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العالمية');
+      return;
+    }
+
+    const fcmToken = localStorage.getItem('fcmToken');
+    const authToken = localStorage.getItem('token');
+
+    if (!fcmToken) {
+      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      return;
+    }
+
+    if (!authToken) {
+      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          deviceToken: fcmToken,
+          topic: 'global-jobs'
+        })
+      });
+
+      if (response.ok) {
+        alert('✅ تم تفعيل إشعارات الوظائف العالمية بنجاح!');
+      } else {
+        alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
+      }
+    } catch (error) {
+      console.error('Subscription error:', error);
+      alert('حدث خطأ في الاتصال');
+    }
+  };
+
   // --- Translation Logic (Full Item: Title, Location, Description) ---
   const handleTranslate = async (jobId: string, title: string, location: string, description: string) => {
       // 1. Check current state for this job
@@ -300,16 +343,27 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       
       {/* Header */}
       <div className="bg-white sticky top-0 z-50 border-b border-gray-100 shadow-sm">
-        <div className="px-4 py-4 flex items-center gap-3">
-           <div className="p-2 rounded-xl bg-green-50">
-               <Globe size={24} className="text-green-600" />
+        <div className="px-4 py-4 flex items-center justify-between">
+           <div className="flex items-center gap-3">
+               <div className="p-2 rounded-xl bg-green-50">
+                   <Globe size={24} className="text-green-600" />
+               </div>
+               <div>
+                   <h2 className="text-xl font-bold text-gray-900">{t('world_jobs_title')}</h2>
+                   <p className="text-[10px] text-gray-500 font-medium">
+                       {t('world_jobs_subtitle')}
+                   </p>
+               </div>
            </div>
-           <div>
-               <h2 className="text-xl font-bold text-gray-900">{t('world_jobs_title')}</h2>
-               <p className="text-[10px] text-gray-500 font-medium">
-                   {t('world_jobs_subtitle')}
-               </p>
-           </div>
+           
+           {/* Notification Bell */}
+           <button 
+             onClick={handleSubscribe}
+             className="p-2 rounded-full hover:bg-gray-100 transition-colors text-green-600"
+             title="تفعيل إشعارات الوظائف العالمية"
+           >
+             <Bell size={20} strokeWidth={2} />
+           </button>
         </div>
       </div>
 

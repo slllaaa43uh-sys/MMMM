@@ -3,8 +3,9 @@ importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
 // إعدادات فايربيس (يجب أن تكون hardcoded هنا لأن Service Worker لا يصل لـ .env)
+// تم التحديث بناءً على البيانات المرسلة
 const firebaseConfig = {
-  apiKey: "AIzaSyBvveNXHmdO_j07dHwyLAiLOj1pxsmbjaQ",
+  apiKey: "AIzaSyCuH5K2NQhtLmeFtJ19ylnZ3FdcJ_AuOdU",
   authDomain: "mehnati-d7ab9.firebaseapp.com",
   projectId: "mehnati-d7ab9",
   storageBucket: "mehnati-d7ab9.firebasestorage.app",

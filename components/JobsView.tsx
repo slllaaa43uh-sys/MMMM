@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -63,6 +62,9 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     }
 
     try {
+      // تحديد الموضوع الفرعي بناءً على الصفحة الحالية (باحث أو صاحب عمل)
+      const subTopic = activeSubPage ? activeSubPage.type : 'all';
+
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
         method: 'POST',
         headers: {
@@ -71,12 +73,14 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
         },
         body: JSON.stringify({
           deviceToken: fcmToken,
-          topic: 'jobs'
+          topic: 'jobs',
+          subTopic: subTopic // إرسال الموضوع الفرعي
         })
       });
 
       if (response.ok) {
-        alert('✅ تم تفعيل إشعارات الوظائف بنجاح!');
+        const typeLabel = subTopic === 'seeker' ? 'للباحثين عن عمل' : (subTopic === 'employer' ? 'لأصحاب العمل' : 'العامة');
+        alert(`✅ تم تفعيل إشعارات الوظائف (${typeLabel}) بنجاح!`);
       } else {
         alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
       }

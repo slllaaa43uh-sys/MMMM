@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, MapPin, Clock, Zap, Filter, Search, Briefcase, DollarSign, Bell, Layers
@@ -141,8 +140,48 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
       setActiveTag(tagValue); 
   };
 
-  const handleSubscribe = () => {
-      alert(t('feature_coming_soon'));
+  const handleSubscribe = async () => {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العاجلة');
+      return;
+    }
+
+    const fcmToken = localStorage.getItem('fcmToken');
+    const authToken = localStorage.getItem('token');
+
+    if (!fcmToken) {
+      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      return;
+    }
+
+    if (!authToken) {
+      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          deviceToken: fcmToken,
+          topic: 'urgent-jobs'
+        })
+      });
+
+      if (response.ok) {
+        alert('✅ تم تفعيل إشعارات الوظائف العاجلة بنجاح!');
+      } else {
+        alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
+      }
+    } catch (error) {
+      console.error('Subscription error:', error);
+      alert('حدث خطأ في الاتصال');
+    }
   };
 
   // Filter posts based on active tag
@@ -194,6 +233,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
                 <button 
                     onClick={handleSubscribe}
                     className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600 dark:text-red-400"
+                    title="تفعيل إشعارات الوظائف العاجلة"
                 >
                     <Bell size={20} strokeWidth={2} />
                 </button>
