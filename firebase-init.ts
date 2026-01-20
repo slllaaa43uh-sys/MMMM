@@ -1,7 +1,8 @@
+
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
-// Safely access env
+// تحميل المتغيرات من ملف .env.local
 const env = (import.meta as any).env || {};
 
 const firebaseConfig = {
@@ -18,20 +19,20 @@ let app = null;
 let messaging = null;
 
 try {
-  // Only attempt to initialize if we have at least an API key
-  if (firebaseConfig.apiKey) {
+  // التحقق من وجود المفاتيح قبل التهيئة لتجنب الأخطاء
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
     app = initializeApp(firebaseConfig);
     
-    // Check for window/navigator to prevent SSR/Build errors
-    if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
-        try {
-            messaging = getMessaging(app);
-        } catch (e) {
-            console.warn("Firebase Messaging not supported in this environment");
-        }
+    // التحقق من دعم المتصفح للإشعارات
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        messaging = getMessaging(app);
+      } catch (e) {
+        console.warn("Firebase Messaging failed to initialize (supported only in secure context/https)", e);
+      }
     }
   } else {
-      console.warn("Firebase Configuration missing. App will run in offline/demo mode.");
+    console.warn("Firebase Config keys are missing.");
   }
 } catch (error) {
   console.error("Firebase Initialization Error:", error);

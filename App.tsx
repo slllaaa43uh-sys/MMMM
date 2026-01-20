@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { messaging, getToken, onMessage } from './firebase-init';
+import { messaging, getToken, onMessage } from './firebase-init'; // Import Firebase Messaging
 import Header from './components/Header';
 import CreatePostBar from './components/CreatePostBar';
 import Stories from './components/Stories';
@@ -85,33 +85,54 @@ const AppContent: React.FC = () => {
     }
   }, [token]);
 
+  // === FIREBASE NOTIFICATION INIT ===
   useEffect(() => {
     const initFirebaseNotifications = async () => {
-      if (!token) return;
+      if (!token || !messaging) return;
+      
       try {
+        // 1. Request Permission
         const permission = await Notification.requestPermission();
+        
         if (permission === 'granted') {
-          if (messaging && getToken) {
-            const fcmToken = await getToken(messaging, {
-              vapidKey: (import.meta as any).env.VITE_FIREBASE_VAPID_KEY
+          // 2. Get Token
+          // NOTE: You need to generate a VAPID key in Firebase Console -> Cloud Messaging -> Web Config
+          // and put it in your .env file as VITE_FIREBASE_VAPID_KEY
+          const vapidKey = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
+          
+          if (getToken) {
+             const fcmToken = await getToken(messaging, { vapidKey });
+             if (fcmToken) {
+               console.log('✅ FCM Token:', fcmToken);
+               localStorage.setItem('fcmToken', fcmToken);
+               // Optional: Send to backend to update user profile
+             }
+          }
+
+          // 3. Listen for foreground messages
+          if (onMessage) {
+            onMessage(messaging, (payload: any) => {
+              console.log('Foreground Message:', payload);
+              if (payload.notification) {
+                // You can show a custom toast here
+                new Notification(payload.notification.title || 'إشعار جديد', {
+                  body: payload.notification.body,
+                  icon: '/logo.png'
+                });
+              }
             });
-            if (fcmToken) localStorage.setItem('fcmToken', fcmToken);
-            if (onMessage) {
-              onMessage(messaging, (payload: any) => {
-                if (payload.notification) {
-                  new Notification(payload.notification.title || 'إشعار جديد', {
-                    body: payload.notification.body,
-                    icon: '/logo.png'
-                  });
-                }
-              });
-            }
           }
         }
-      } catch (error) { console.error('Firebase error:', error); }
+      } catch (error) {
+        console.error('Firebase Notification Error:', error);
+      }
     };
-    setTimeout(initFirebaseNotifications, 1000);
+
+    // Delay slightly to not block initial render
+    const timer = setTimeout(initFirebaseNotifications, 2000);
+    return () => clearTimeout(timer);
   }, [token]);
+  // ===================================
 
   useEffect(() => {
     if (!token) return;

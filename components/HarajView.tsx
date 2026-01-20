@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, ChevronLeft, Store, MapPin, Loader2, Megaphone, Bell
@@ -35,30 +36,28 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     setPosts([]);
   };
 
+  // وظيفة الاشتراك في إشعارات الحراج
   const handleSubscribeHaraj = async () => {
-    alert(t('feature_coming_soon'));
-    return;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الحراج');
+      return;
+    }
+
+    const fcmToken = localStorage.getItem('fcmToken');
+    const authToken = localStorage.getItem('token');
+
+    if (!fcmToken) {
+      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      return;
+    }
+
+    if (!authToken) {
+      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      return;
+    }
 
     try {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الحراج');
-        return;
-      }
-      
-      const fcmToken = localStorage.getItem('fcmToken');
-      const authToken = localStorage.getItem('token');
-      
-      if (!fcmToken) {
-        alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
-        return;
-      }
-      
-      if (!authToken) {
-        alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
-        return;
-      }
-      
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
         method: 'POST',
         headers: {
@@ -71,7 +70,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
           subTopic: activeCategory || 'all'
         })
       });
-      
+
       if (response.ok) {
         alert('✅ تم تفعيل إشعارات الحراج بنجاح! ستصلك تنبيهات عند توفر عروض جديدة.');
       } else {
@@ -237,7 +236,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
             </div>
 
             <div className="flex items-center gap-2">
-              {/* --- BELL ICON IN SUB-PAGE --- */}
+              {/* --- زر الجرس داخل صفحة القسم --- */}
               <button 
                 onClick={handleSubscribeHaraj}
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-orange-600 dark:text-orange-400"
@@ -311,7 +310,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
            </div>
            
            <div className="flex items-center gap-2">
-             {/* --- BELL ICON IN MAIN HARAJ HEADER --- */}
+             {/* --- زر الجرس في الصفحة الرئيسية للحراج --- */}
              <button 
                onClick={handleSubscribeHaraj}
                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"

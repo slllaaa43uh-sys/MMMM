@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowRight, Send, Sparkles, User, Loader2, Briefcase, MapPin, Building2, ChevronRight } from 'lucide-react';
+import { ArrowRight, Send, Sparkles, User, Loader2, Briefcase, MapPin, Building2, ChevronRight, Trash2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
 import Logo from './Logo';
@@ -28,28 +28,56 @@ interface Message {
 
 const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
   const { language, t } = useLanguage();
-  const [messages, setMessages] = useState<Message[]>([]);
+  
+  // 1. Initialize from localStorage
+  const [messages, setMessages] = useState<Message[]>(() => {
+      try {
+          const saved = localStorage.getItem('ai_chat_history');
+          return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+          return [];
+      }
+  });
+
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<string>('online'); // online, thinking, searching, responding
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize with the welcome message
+  // 2. Set welcome message only if history is empty
   useEffect(() => {
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'model',
-        text: t('ai_welcome_msg')
-      }
-    ]);
+    if (messages.length === 0) {
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'model',
+            text: t('ai_welcome_msg')
+          }
+        ]);
+    }
   }, [t]);
+
+  // 3. Save to localStorage whenever messages change
+  useEffect(() => {
+      if (messages.length > 0) {
+          localStorage.setItem('ai_chat_history', JSON.stringify(messages));
+      }
+  }, [messages]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, aiStatus]);
+
+  const handleClearHistory = () => {
+      localStorage.removeItem('ai_chat_history');
+      setMessages([{
+        id: 'welcome',
+        role: 'model',
+        text: t('ai_welcome_msg')
+      }]);
+  };
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -191,40 +219,52 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
     <div className="fixed inset-0 z-[200] bg-white dark:bg-black flex flex-col animate-in slide-in-from-right duration-300">
       
       {/* Header */}
-      <div className="px-4 py-3 bg-white dark:bg-[#121212] border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 sticky top-0 z-20 pt-safe shadow-sm">
-        <button 
-          onClick={onClose} 
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 transition-colors"
-        >
-          <ArrowRight className={language === 'en' ? 'rotate-180' : ''} size={24} />
-        </button>
-        <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${isLoading ? 'bg-amber-500 animate-pulse' : 'bg-gradient-to-tr from-cyan-500 to-blue-600'}`}>
-                {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} fill="currentColor" />}
-            </div>
-            <div>
-                <h2 className="text-base font-bold text-gray-900 dark:text-white leading-tight">{t('ai_title')}</h2>
-                {isLoading ? (
-                    <p className="text-[10px] text-amber-600 font-bold flex items-center gap-1 animate-pulse">
-                        {getStatusText()}
-                    </p>
-                ) : (
-                    <p className="text-[10px] text-green-500 font-medium flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                        {t('ai_online')}
-                    </p>
-                )}
+      <div className="px-4 py-3 bg-white dark:bg-[#121212] border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 z-20 pt-safe shadow-sm">
+        <div className="flex items-center gap-3">
+            <button 
+            onClick={onClose} 
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 transition-colors"
+            >
+            <ArrowRight className={language === 'en' ? 'rotate-180' : ''} size={24} />
+            </button>
+            <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${isLoading ? 'bg-amber-500 animate-pulse' : 'bg-gradient-to-tr from-cyan-500 to-blue-600'}`}>
+                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} fill="currentColor" />}
+                </div>
+                <div>
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white leading-tight">{t('ai_title')}</h2>
+                    {isLoading ? (
+                        <p className="text-[10px] text-amber-600 font-bold flex items-center gap-1 animate-pulse">
+                            {getStatusText()}
+                        </p>
+                    ) : (
+                        <p className="text-[10px] text-green-500 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                            {t('ai_online')}
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
+        {/* Clear History Button */}
+        <button 
+            onClick={handleClearHistory} 
+            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+            title="Clear History"
+        >
+            <Trash2 size={18} />
+        </button>
       </div>
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-gray-50 dark:bg-black pb-24">
         
-        {/* Intro Branding */}
-        <div className="flex flex-col items-center justify-center py-6 opacity-50">
+        {/* Intro Branding (UPDATED TEXT) */}
+        <div className="flex flex-col items-center justify-center py-6 opacity-60">
             <Logo className="w-16 h-16 grayscale opacity-30 mb-2" />
-            <p className="text-xs text-gray-400">Powered by Ollama & Mehnati Engine</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center max-w-[80%] font-medium leading-relaxed">
+                تم تصميم هذا المساعد من قبل فريق العمل ليساعدكم في كتابه السيره الذاتيه او تواجه صعوبات في التطبيق فقط
+            </p>
         </div>
 
         {messages.map((msg) => (

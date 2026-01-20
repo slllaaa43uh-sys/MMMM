@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -40,34 +41,28 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     setPosts([]);
   };
 
+  // وظيفة الاشتراك في إشعارات الوظائف
   const handleSubscribeJobs = async () => {
-    alert(t('feature_coming_soon'));
-    return;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف');
+      return;
+    }
+
+    const fcmToken = localStorage.getItem('fcmToken');
+    const authToken = localStorage.getItem('token');
+
+    if (!fcmToken) {
+      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      return;
+    }
+
+    if (!authToken) {
+      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      return;
+    }
 
     try {
-      // 1. Request Browser Permission
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف');
-        return;
-      }
-      
-      // 2. Get Token
-      const fcmToken = localStorage.getItem('fcmToken');
-      const authToken = localStorage.getItem('token');
-      
-      if (!fcmToken) {
-        alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
-        return;
-      }
-      
-      if (!authToken) {
-        alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
-        return;
-      }
-      
-      // 3. Send Subscription to Backend
-      // Assuming backend endpoint /api/v1/fcm/subscribe handles topic subscription
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
         method: 'POST',
         headers: {
@@ -76,15 +71,13 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
         },
         body: JSON.stringify({
           deviceToken: fcmToken,
-          topic: 'jobs', // Topic for all jobs
-          subTopic: activeSubPage ? activeSubPage.type : 'all' // Optional: refined subscription
+          topic: 'jobs'
         })
       });
-      
+
       if (response.ok) {
-        alert('✅ تم تفعيل إشعارات الوظائف بنجاح! ستصلك تنبيهات عند توفر وظائف جديدة.');
+        alert('✅ تم تفعيل إشعارات الوظائف بنجاح!');
       } else {
-        // Fallback for demo if API isn't ready, generally we show success or handle specific error
         alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
       }
     } catch (error) {
@@ -263,7 +256,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
               </div>
 
               <div className="flex items-center gap-2">
-                {/* --- BELL ICON INSIDE SUB-PAGE --- */}
+                {/* --- زر الجرس داخل الصفحة الفرعية --- */}
                 <button 
                   onClick={handleSubscribeJobs}
                   className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-purple-600 dark:text-purple-400"
@@ -332,7 +325,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
            </div>
            
            <div className="flex items-center gap-2">
-             {/* --- BELL ICON IN MAIN JOBS HEADER --- */}
+             {/* --- زر الجرس في الصفحة الرئيسية للوظائف --- */}
              <button 
                onClick={handleSubscribeJobs}
                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
@@ -390,7 +383,6 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                        <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-full text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
                           <Users size={20} />
                        </div>
-                       {/* تم التبديل هنا: بدلاً من jobs_employer وضعنا jobs_seeker */}
                        <span className="font-bold text-gray-700 dark:text-gray-200">{t('jobs_seeker')}</span>
                     </div>
                     <ChevronLeft size={18} className={`text-gray-300 group-hover:text-purple-500 ${language === 'en' ? 'rotate-180' : ''}`} />
@@ -404,7 +396,6 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                        <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
                           <Briefcase size={20} />
                        </div>
-                       {/* تم التبديل هنا: بدلاً من jobs_seeker وضعنا jobs_employer */}
                        <span className="font-bold text-gray-700 dark:text-gray-200">{t('jobs_employer')}</span>
                     </div>
                     <ChevronLeft size={18} className={`text-gray-300 group-hover:text-blue-500 ${language === 'en' ? 'rotate-180' : ''}`} />
