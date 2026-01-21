@@ -99,44 +99,12 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // === NOTIFICATIONS INIT (WEB & NATIVE) ===
+  // === NOTIFICATIONS INIT (NATIVE ANDROID ONLY) ===
   useEffect(() => {
     const initNotifications = async () => {
-      // 1. WEB LOGIC
-      if (Capacitor.getPlatform() === 'web') {
-        if (!token || !messaging) return;
-        try {
-          if (typeof Notification !== 'undefined') {
-            const permission = await Notification.requestPermission();
-            
-            if (permission === 'granted') {
-              const vapidKey = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
-              if (getToken) {
-                 const fcmToken = await getToken(messaging, { vapidKey });
-                 if (fcmToken) {
-                   console.log('✅ FCM Token (Web):', fcmToken);
-                   localStorage.setItem('fcmToken', fcmToken);
-                 }
-              }
-              if (onMessage) {
-                onMessage(messaging, (payload: any) => {
-                  console.log('Foreground Message:', payload);
-                  if (payload.notification && typeof Notification !== 'undefined') {
-                    new Notification(payload.notification.title || 'إشعار جديد', {
-                      body: payload.notification.body,
-                      icon: '/logo.png'
-                    });
-                  }
-                });
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Firebase Web Notification Error:', error);
-        }
-      } 
-      // 2. NATIVE LOGIC (ANDROID/IOS)
-      else {
+      // Only run on Native Platforms (Android/iOS)
+      // We explicitly skip 'web' to disable web notifications as requested
+      if (Capacitor.getPlatform() !== 'web') {
         try {
           const permStatus = await PushNotifications.requestPermissions();
           if (permStatus.receive === 'granted') {
