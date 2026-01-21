@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, MapPin, Clock, Zap, Filter, Search, Briefcase, DollarSign, Bell, Layers
@@ -143,7 +144,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
   const handleSubscribe = async () => {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العاجلة');
+      alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العاجلة');
       return;
     }
 
@@ -151,12 +152,12 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
     const authToken = localStorage.getItem('token');
 
     if (!fcmToken) {
-      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      alert('⏳ جاري تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
       return;
     }
 
     if (!authToken) {
-      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
       return;
     }
 
@@ -176,11 +177,12 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
       if (response.ok) {
         alert('✅ تم تفعيل إشعارات الوظائف العاجلة بنجاح!');
       } else {
-        alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
+        const data = await response.json().catch(() => ({}));
+        alert(`❌ فشل تفعيل الإشعارات.\n${data.message || ''}`);
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      alert('حدث خطأ في الاتصال');
+      alert('❌ خطأ في الاتصال');
     }
   };
 

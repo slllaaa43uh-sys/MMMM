@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -40,30 +41,33 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     setPosts([]);
   };
 
-  // وظيفة الاشتراك في إشعارات الوظائف
+  // وظيفة الاشتراك في إشعارات الوظائف (داخل القسم)
   const handleSubscribeJobs = async () => {
+    // 1. التحقق من إذن النظام
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف');
+      alert('⚠️ يرجى السماح بالإشعارات من إعدادات هاتفك لتتمكن من الاشتراك.');
       return;
     }
 
     const fcmToken = localStorage.getItem('fcmToken');
     const authToken = localStorage.getItem('token');
 
+    // 2. التحقق من توفر التوكن والاتصال
     if (!fcmToken) {
-      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      alert('⏳ جاري تهيئة خدمة الإشعارات.. يرجى الانتظار قليلاً والمحاولة مرة أخرى.');
       return;
     }
 
     if (!authToken) {
-      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
       return;
     }
 
     try {
       // تحديد الموضوع الفرعي بناءً على الصفحة الحالية (باحث أو صاحب عمل)
       const subTopic = activeSubPage ? activeSubPage.type : 'all';
+      const categoryName = activeSubPage ? t(activeSubPage.category) : '';
 
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
         method: 'POST',
@@ -74,19 +78,20 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
         body: JSON.stringify({
           deviceToken: fcmToken,
           topic: 'jobs',
-          subTopic: subTopic // إرسال الموضوع الفرعي
+          subTopic: subTopic // إرسال الموضوع الفرعي (seeker/employer)
         })
       });
 
       if (response.ok) {
         const typeLabel = subTopic === 'seeker' ? 'للباحثين عن عمل' : (subTopic === 'employer' ? 'لأصحاب العمل' : 'العامة');
-        alert(`✅ تم تفعيل إشعارات الوظائف (${typeLabel}) بنجاح!`);
+        alert(`✅ تم تفعيل الإشعارات بنجاح!\nستصلك تنبيهات جديدة في قسم: ${categoryName} (${typeLabel}).`);
       } else {
-        alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
+        const data = await response.json().catch(() => ({}));
+        alert(`❌ فشل تفعيل الإشعارات.\nالسبب: ${data.message || 'خطأ غير معروف'}`);
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      alert('حدث خطأ في الاتصال');
+      alert('❌ خطأ في الاتصال بالخادم. تأكد من اتصال الإنترنت.');
     }
   };
 
@@ -231,6 +236,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     : null;
   const JobIcon = currentJobData ? currentJobData.icon : Briefcase;
 
+  // --- 1. RENDER INSIDE SECTION (Active Sub Page) ---
   if (activeSubPage) {
     return (
       <div className="bg-[#f0f2f5] dark:bg-black min-h-screen">
@@ -260,7 +266,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
               </div>
 
               <div className="flex items-center gap-2">
-                {/* --- زر الجرس داخل الصفحة الفرعية --- */}
+                {/* --- زر الجرس: يظهر هنا فقط داخل القسم --- */}
                 <button 
                   onClick={handleSubscribeJobs}
                   className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-purple-600 dark:text-purple-400"
@@ -314,6 +320,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     )
   }
 
+  // --- 2. RENDER MAIN CATEGORIES LIST (No Bell Here) ---
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       <div className="bg-white dark:bg-[#121212] sticky top-0 z-10 shadow-sm border-b border-gray-100 dark:border-gray-800">
@@ -329,14 +336,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
            </div>
            
            <div className="flex items-center gap-2">
-             {/* --- زر الجرس في الصفحة الرئيسية للوظائف --- */}
-             <button 
-               onClick={handleSubscribeJobs}
-               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
-               title="تفعيل إشعارات الوظائف"
-             >
-               <Bell size={20} strokeWidth={2} />
-             </button>
+             {/* --- تم حذف زر الجرس من هنا --- */}
 
              <button 
                 onClick={onLocationClick}

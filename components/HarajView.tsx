@@ -36,24 +36,26 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     setPosts([]);
   };
 
-  // وظيفة الاشتراك في إشعارات الحراج
+  // وظيفة الاشتراك في إشعارات الحراج (داخل القسم)
   const handleSubscribeHaraj = async () => {
+    // 1. التحقق من إذن النظام
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الحراج');
+      alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتتمكن من الاشتراك.');
       return;
     }
 
     const fcmToken = localStorage.getItem('fcmToken');
     const authToken = localStorage.getItem('token');
 
+    // 2. التحقق من توفر التوكن والاتصال
     if (!fcmToken) {
-      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      alert('⏳ جاري تهيئة خدمة الإشعارات.. يرجى الانتظار قليلاً والمحاولة مرة أخرى.');
       return;
     }
 
     if (!authToken) {
-      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
       return;
     }
 
@@ -72,13 +74,14 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       });
 
       if (response.ok) {
-        alert('✅ تم تفعيل إشعارات الحراج بنجاح! ستصلك تنبيهات عند توفر عروض جديدة.');
+        alert(`✅ تم تفعيل إشعارات قسم "${t(activeCategory || '')}" بنجاح!`);
       } else {
-        alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
+        const data = await response.json().catch(() => ({}));
+        alert(`❌ فشل تفعيل الإشعارات.\nالسبب: ${data.message || 'خطأ غير معروف'}`);
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      alert('حدث خطأ في الاتصال');
+      alert('❌ خطأ في الاتصال بالخادم. تأكد من اتصال الإنترنت.');
     }
   };
 
@@ -212,6 +215,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
   const currentCategoryData = HARAJ_CATEGORIES.find(c => c.name === activeCategory);
   const CategoryIcon = currentCategoryData ? currentCategoryData.icon : Store;
 
+  // --- 1. RENDER INSIDE CATEGORY (Active Category) ---
   if (activeCategory) {
     return (
       <div className="bg-[#f0f2f5] dark:bg-black min-h-screen">
@@ -236,7 +240,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
             </div>
 
             <div className="flex items-center gap-2">
-              {/* --- زر الجرس داخل صفحة القسم --- */}
+              {/* --- زر الجرس: يظهر هنا فقط داخل القسم --- */}
               <button 
                 onClick={handleSubscribeHaraj}
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-orange-600 dark:text-orange-400"
@@ -295,6 +299,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     );
   }
 
+  // --- 2. RENDER MAIN CATEGORIES LIST (No Bell Here) ---
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       <div className="bg-white dark:bg-[#121212] sticky top-0 z-10 shadow-sm border-b border-gray-100 dark:border-gray-800">
@@ -310,14 +315,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
            </div>
            
            <div className="flex items-center gap-2">
-             {/* --- زر الجرس في الصفحة الرئيسية للحراج --- */}
-             <button 
-               onClick={handleSubscribeHaraj}
-               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
-               title="تفعيل إشعارات الحراج"
-             >
-               <Bell size={20} strokeWidth={2} />
-             </button>
+             {/* --- تم حذف زر الجرس من هنا --- */}
 
              <button 
                 onClick={onLocationClick}

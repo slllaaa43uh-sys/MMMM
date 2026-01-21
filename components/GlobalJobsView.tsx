@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell } from 'lucide-react';
@@ -189,7 +190,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
   const handleSubscribe = async () => {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      alert('يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العالمية');
+      alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العالمية');
       return;
     }
 
@@ -197,12 +198,12 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
     const authToken = localStorage.getItem('token');
 
     if (!fcmToken) {
-      alert('جارٍ تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+      alert('⏳ جاري تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
       return;
     }
 
     if (!authToken) {
-      alert('يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
+      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
       return;
     }
 
@@ -222,11 +223,12 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       if (response.ok) {
         alert('✅ تم تفعيل إشعارات الوظائف العالمية بنجاح!');
       } else {
-        alert('حدث خطأ أثناء تفعيل الإشعارات، يرجى المحاولة مرة أخرى.');
+        const data = await response.json().catch(() => ({}));
+        alert(`❌ فشل تفعيل الإشعارات.\n${data.message || ''}`);
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      alert('حدث خطأ في الاتصال');
+      alert('❌ خطأ في الاتصال');
     }
   };
 
