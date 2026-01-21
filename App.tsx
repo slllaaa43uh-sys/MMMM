@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { messaging, getToken, onMessage } from './firebase-init'; // Import Firebase Messaging
+import { messaging, getToken, onMessage } from './firebase-init';
 import Header from './components/Header';
 import CreatePostBar from './components/CreatePostBar';
 import Stories from './components/Stories';
@@ -25,12 +25,23 @@ import UrgentJobsView from './components/UrgentJobsView';
 import CVBuilderWizard from './components/CVBuilderWizard';
 import AIChatView from './components/AIChatView';
 import SearchView from './components/SearchView'; 
+import VideoDetailView from './components/VideoDetailView';
 import { Post } from './types';
 import { API_BASE_URL } from './constants';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Capacitor } from '@capacitor/core';
-import { PushNotifications } from '@capacitor/push-notifications';
 import { ChevronsDown, Loader2, WifiOff } from 'lucide-react';
+
+// Import New Services
+import { createNotificationChannel, registerForPushNotifications } from './services/pushNotifications';
+import { BadgeCounterService } from './services/badgeCounterService';
+
+// Expose handleNotification for Android Native
+declare global {
+  interface Window {
+    handleNotification: (data: any) => void;
+  }
+}
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
@@ -47,7 +58,7 @@ const AppContent: React.FC = () => {
 
   // AI Chat & Search State
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false); // New Search State
+  const [isSearchOpen, setIsSearchOpen] = useState(false); 
 
   const [activeTab, setActiveTab] = useState('home');
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -99,108 +110,72 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // === NOTIFICATIONS INIT (NATIVE ANDROID ONLY) ===
-  useEffect(() => {
-    // Helper to Sync Token & Subscribe
-    const syncFcmToken = async (fcmToken: string, authToken: string) => {
-        try {
-            // 1. Send Token to Server
-            await fetch(`${API_BASE_URL}/api/v1/users/fcm-token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                },
-                body: JSON.stringify({ 
-                    fcmToken: fcmToken,
-                    platform: Capacitor.getPlatform() 
-                })
-            });
+  // --- NOTIFICATIONS & DEEP LINKING SETUP ---
+  
+  // 1. Handle Notification Navigation
+  const handleDeepLink = (data: any) => {
+      console.log('🚀 Handling Deep Link Data:', data);
+      
+      const postId = data.postId || data.post_id;
+      const videoId = data.videoId || data.video_id || data.shortId;
+      const userId = data.userId || data.user_id;
 
-            // 2. Subscribe to Default Topics (jobs / drivers / urgent / general)
-            const topics = ['urgent-jobs', 'general', 'drivers', 'jobs']; 
-            for (const topic of topics) {
-                // We use a fire-and-forget approach or await each to ensure subscription
-                await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({
-                        deviceToken: fcmToken,
-                        topic: topic
-                    })
-                }).catch(e => console.warn(`Failed to sub to ${topic}`, e));
-            }
-            console.log("✅ FCM Token Synced & Subscribed");
-        } catch (e) {
-            console.error("❌ FCM Sync Error:", e);
-        }
-    };
-
-    const initNotifications = async () => {
-      // Only run on Native Platforms (Android/iOS)
-      if (Capacitor.getPlatform() !== 'web') {
-        try {
-          // A. Create Notification Channel (Critical for Android)
-          await PushNotifications.createChannel({
-              id: 'fcm_default_channel',
-              name: 'General Notifications',
-              description: 'General app notifications',
-              importance: 5,
-              visibility: 1,
-              lights: true,
-              vibration: true,
-              sound: 'default'
-          });
-
-          // B. Request Permissions & Register
-          const permStatus = await PushNotifications.requestPermissions();
-          if (permStatus.receive === 'granted') {
-            await PushNotifications.register();
-          }
-
-          // C. Setup Listeners
-          await PushNotifications.removeAllListeners();
-
-          await PushNotifications.addListener('registration', async tokenData => {
-            console.log('✅ FCM Token (Native):', tokenData.value);
-            localStorage.setItem('fcmToken', tokenData.value);
-            
-            // Sync if user is logged in
-            if (token) {
-                await syncFcmToken(tokenData.value, token);
-            }
-          });
-
-          await PushNotifications.addListener('registrationError', err => {
-            console.error('Push registration failed:', err);
-          });
-
-          await PushNotifications.addListener('pushNotificationReceived', notification => {
-            console.log('Push received:', notification);
-          });
-          
-          await PushNotifications.addListener('pushNotificationActionPerformed', notification => {
-             console.log('Push action:', notification);
-             // Handle background tap logic here if needed
-          });
-
-          // D. Fallback: Sync existing token if already registered and just logged in
-          const existingFcm = localStorage.getItem('fcmToken');
-          if (existingFcm && token) {
-              await syncFcmToken(existingFcm, token);
-          }
-
-        } catch (error) {
-          console.error('Native Push Init Error:', error);
-        }
+      if (postId) {
+          // Open Post Detail
+          setSelectedNotification({ targetId: postId, category: 'post' });
+      } else if (videoId) {
+          // Open Video Detail
+          setSelectedNotification({ targetId: videoId, category: 'video' });
+      } else if (userId) {
+          // Open Profile
+          setViewingProfileId(userId);
       }
+  };
+
+  // 2. Initialize Push Logic
+  useEffect(() => {
+    // A. Create Channel on Mount
+    createNotificationChannel();
+
+    // B. Register if logged in
+    if (token) {
+        registerForPushNotifications(token);
+    }
+
+    // C. Handle Service Worker Messages (Web Push Click)
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
+            handleDeepLink(event.data.data);
+        }
+    };
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
+
+    // D. Handle Android Native Deep Links (window.handleNotification)
+    window.handleNotification = (data: any) => {
+        handleDeepLink(data);
     };
 
-    initNotifications();
+    // E. Handle URL Params (Cold Start from Web Push)
+    const params = new URLSearchParams(window.location.search);
+    const urlPostId = params.get('postId');
+    const urlVideoId = params.get('videoId');
+    
+    if (urlPostId) handleDeepLink({ postId: urlPostId });
+    if (urlVideoId) handleDeepLink({ videoId: urlVideoId });
+
+    // F. Listen for Capacitor Notification Click Event (Dispatched from service)
+    const handleCapacitorClick = (e: CustomEvent) => {
+        handleDeepLink(e.detail);
+    };
+    window.addEventListener('notification-clicked', handleCapacitorClick as EventListener);
+
+    return () => {
+        navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+        window.removeEventListener('notification-clicked', handleCapacitorClick as EventListener);
+        delete (window as any).handleNotification;
+    };
   }, [token]);
+
   // ===================================
 
   useEffect(() => {
@@ -213,7 +188,9 @@ const AppContent: React.FC = () => {
         });
         if (response.ok) {
           const data = await response.json();
-          setUnreadNotificationsCount(data.unreadCount || 0);
+          const count = data.unreadCount || 0;
+          setUnreadNotificationsCount(count);
+          BadgeCounterService.setBadge(count); // Update Badge
         }
       } catch (error) { console.error("Failed to fetch unread count", error); }
     };
@@ -276,6 +253,7 @@ const AppContent: React.FC = () => {
     setUnreadNotificationsCount(0);
     setIsLoading(true); 
     setToken(null);
+    BadgeCounterService.clearBadge();
   };
 
   const handleLocationSelect = (country: string, city: string | null) => setCurrentLocation({ country, city });
@@ -606,7 +584,7 @@ const AppContent: React.FC = () => {
       setIsCVWizardOpen(false); 
   };
 
-  const handleOpenNotifications = () => { setIsNotificationsOpen(true); setUnreadNotificationsCount(0); };
+  const handleOpenNotifications = () => { setIsNotificationsOpen(true); setUnreadNotificationsCount(0); BadgeCounterService.clearBadge(); };
 
   // --- FETCHING LOGIC FOR HOME FEED WITH PAGINATION (FIXED) ---
   const fetchFeedPosts = async (pageNum: number, isRefresh: boolean = false) => {
@@ -759,7 +737,13 @@ const AppContent: React.FC = () => {
       {isSettingsOpen && <SettingsView onClose={() => setIsSettingsOpen(false)} onProfileClick={() => handleOpenProfile('me')} onLogout={handleLogout} isDarkMode={isDarkMode} onToggleDarkMode={toggleDarkMode} />}
       {suggestedViewType && <SuggestedUsersView initialTab={suggestedViewType === 'company' ? 'companies' : 'individuals'} people={suggestedPeople} companies={suggestedCompanies} onBack={() => setSuggestedViewType(null)} isLoading={isLoading} onProfileClick={handleOpenProfile} />}
       {isNotificationsOpen && <div className="absolute inset-0 z-50 bg-white"><NotificationsView onClose={() => setIsNotificationsOpen(false)} onNotificationClick={setSelectedNotification} onProfileClick={handleOpenProfile} /></div>}
-      {selectedNotification && selectedNotification.category === 'post' && <PostDetailView notification={selectedNotification} onBack={() => setSelectedNotification(null)} />}
+      
+      {selectedNotification && selectedNotification.category === 'post' && (
+          <PostDetailView notification={selectedNotification} onBack={() => setSelectedNotification(null)} />
+      )}
+      {selectedNotification && selectedNotification.category === 'video' && (
+          <VideoDetailView notification={selectedNotification} onBack={() => setSelectedNotification(null)} />
+      )}
       
       <div className="flex flex-col h-screen">
         <main className="flex-1 overflow-hidden relative">
@@ -796,8 +780,7 @@ const AppContent: React.FC = () => {
                     {posts.map(post => <PostCard key={post.id} post={post} onReport={handleReport} onProfileClick={handleOpenProfile} isActive={isHomeActive} />)}
                   </div>
                   
-                  {/* LOAD MORE BUTTON - REDESIGNED: Short Height & Horizontal */}
-                  {/* HIDE IF OFFLINE */}
+                  {/* LOAD MORE BUTTON */}
                   {!isOnline ? (
                     <div className="py-6 flex flex-col items-center justify-center text-gray-400 gap-2 mb-10">
                         <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-full">

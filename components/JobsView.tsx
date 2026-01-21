@@ -10,8 +10,8 @@ import { JOB_CATEGORIES } from '../data/categories';
 import { API_BASE_URL } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
-import { Capacitor } from '@capacitor/core';
-import { PushNotifications } from '@capacitor/push-notifications';
+// Import New Service
+import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
 
 interface JobsViewProps {
   onFullScreenToggle: (isFull: boolean) => void;
@@ -20,6 +20,32 @@ interface JobsViewProps {
   onReport: (type: 'post' | 'comment' | 'reply', id: string, name: string) => void;
   onProfileClick?: (userId: string) => void;
 }
+
+// Map Arabic categories to English topics for FCM
+const CATEGORY_TO_TOPIC_MAP: Record<string, string> = {
+    "سائق خاص": "driver",
+    "حارس أمن": "security",
+    "طباخ": "chef",
+    "محاسب": "accountant",
+    "مهندس مدني": "engineer",
+    "طبيب/ممرض": "medical",
+    "نجار": "carpenter",
+    "كاتب محتوى": "writer",
+    "كهربائي": "electrician",
+    "ميكانيكي": "mechanic",
+    "بائع / كاشير": "sales",
+    "مبرمج": "developer",
+    "مصمم جرافيك": "designer",
+    "مترجم": "translator",
+    "مدرس خصوصي": "tutor",
+    "مدير مشاريع": "manager",
+    "خدمة عملاء": "support",
+    "مقدم طعام": "waiter",
+    "توصيل": "delivery",
+    "حلاق / خياط": "tailor",
+    "مزارع": "farmer",
+    "وظائف أخرى": "other_jobs"
+};
 
 const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation, onLocationClick, onReport, onProfileClick }) => {
   const { t, language } = useLanguage();
@@ -48,7 +74,8 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
   useEffect(() => {
       if (activeSubPage) {
           const subTopic = activeSubPage.type;
-          const topicKey = `jobs_${activeSubPage.category}_${subTopic}`;
+          const englishCategory = CATEGORY_TO_TOPIC_MAP[activeSubPage.category] || 'other_jobs';
+          const topicKey = `jobs_${englishCategory}_${subTopic}`;
           const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
           setIsSubscribed(!!localSubs[topicKey]);
       }
@@ -56,41 +83,31 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
 
   // 2. Handle Subscribe / Unsubscribe Toggle (Optimistic)
   const handleToggleSubscribe = async () => {
-    let permissionGranted = false;
-    const isWeb = Capacitor.getPlatform() === 'web';
+    const hasPermission = await requestPermissions();
 
-    try {
-        if (isWeb) {
-            if (typeof Notification !== 'undefined') {
-                const p = await Notification.requestPermission();
-                permissionGranted = p === 'granted';
-            }
-        } else {
-            const p = await PushNotifications.requestPermissions();
-            permissionGranted = p.receive === 'granted';
-        }
-    } catch (e) {
-        console.error("Permission request failed", e);
-    }
-
-    if (!permissionGranted) {
+    if (!hasPermission) {
       alert('⚠️ يرجى السماح بالإشعارات من إعدادات الهاتف لتتمكن من الاشتراك.');
       return;
     }
 
-    const fcmToken = localStorage.getItem('fcmToken');
+    const fcmToken = getStoredToken();
     const authToken = localStorage.getItem('token');
 
     if (!fcmToken || !authToken) {
-      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
+      // Try registration again if token missing
+      if (authToken) registerForPushNotifications(authToken);
+      alert('⏳ جاري تهيئة التنبيهات... يرجى المحاولة بعد لحظات.');
       return;
     }
 
     // Optimistic Update
     const previousState = isSubscribed;
     const newState = !previousState;
-    const subTopic = activeSubPage ? activeSubPage.type : 'all';
-    const topicKey = `jobs_${activeSubPage?.category}_${subTopic}`;
+    const subType = activeSubPage ? activeSubPage.type : 'seeker';
+    const arabicCategory = activeSubPage?.category || '';
+    const englishCategory = CATEGORY_TO_TOPIC_MAP[arabicCategory] || 'other_jobs';
+    
+    const topicKey = `jobs_${englishCategory}_${subType}`;
     
     // Update State & Storage Immediately
     setIsSubscribed(newState);
@@ -110,18 +127,18 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
         },
         body: JSON.stringify({
           deviceToken: fcmToken,
-          topic: 'jobs',
-          subTopic: subTopic // إرسال الموضوع الفرعي (seeker/employer)
+          topic: 'jobs', // Main Topic
+          category: englishCategory, // Sub-category mapping
+          subType: subType // seeker or employer
         })
       });
 
       if (response.ok) {
-        const typeLabel = subTopic === 'seeker' ? 'للباحثين عن عمل' : (subTopic === 'employer' ? 'لأصحاب العمل' : 'العامة');
-        const categoryName = activeSubPage ? t(activeSubPage.category) : '';
+        const typeLabel = subType === 'seeker' ? 'للباحثين عن عمل' : 'لأصحاب العمل';
         
         alert(newState
-            ? `✅ تم تفعيل الإشعارات لقسم: ${categoryName} (${typeLabel}).`
-            : `🔕 تم إلغاء تفعيل الإشعارات لقسم: ${categoryName} (${typeLabel}).`
+            ? `✅ تم تفعيل الإشعارات لقسم: ${t(arabicCategory)} (${typeLabel}).`
+            : `🔕 تم إلغاء تفعيل الإشعارات لقسم: ${t(arabicCategory)} (${typeLabel}).`
         );
       } else {
         throw new Error("Server rejected subscription");

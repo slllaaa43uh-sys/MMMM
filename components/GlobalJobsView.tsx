@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell, BellOff } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
-import { Capacitor } from '@capacitor/core';
-import { PushNotifications } from '@capacitor/push-notifications';
+// Updated Imports
+import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
 
 interface ExternalJob {
   _id: string;
@@ -219,39 +219,21 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       }
   };
 
+  // --- UPDATED SUBSCRIBE HANDLER USING SERVICE ---
   const handleToggleSubscribe = async () => {
-    let permissionGranted = false;
-    const isWeb = Capacitor.getPlatform() === 'web';
+    const hasPermission = await requestPermissions();
 
-    try {
-        if (isWeb) {
-            if (typeof Notification !== 'undefined') {
-                const p = await Notification.requestPermission();
-                permissionGranted = p === 'granted';
-            }
-        } else {
-            const p = await PushNotifications.requestPermissions();
-            permissionGranted = p.receive === 'granted';
-        }
-    } catch (e) {
-        console.error("Permission request failed", e);
-    }
-
-    if (!permissionGranted) {
+    if (!hasPermission) {
       alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العالمية');
       return;
     }
 
-    const fcmToken = localStorage.getItem('fcmToken');
+    const fcmToken = getStoredToken();
     const authToken = localStorage.getItem('token');
 
-    if (!fcmToken) {
+    if (!fcmToken || !authToken) {
+      if (authToken) registerForPushNotifications(authToken);
       alert('⏳ جاري تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
-      return;
-    }
-
-    if (!authToken) {
-      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
       return;
     }
 

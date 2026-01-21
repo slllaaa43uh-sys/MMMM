@@ -2,9 +2,9 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
-// إعدادات فايربيس (تم التحديث بالمفتاح الجديد AIzaSyCu...)
+// Updated Config
 const firebaseConfig = {
-  apiKey: "AIzaSyCuH5K2NQhtLmeFtJ19ylnZ3FdcJ_AuOdU",
+  apiKey: "AIzaSyBvveNXHmdO_j07dHwyLAiLOj1pxsmbjaQ",
   authDomain: "mehnati-d7ab9.firebaseapp.com",
   projectId: "mehnati-d7ab9",
   storageBucket: "mehnati-d7ab9.firebasestorage.app",
@@ -17,11 +17,10 @@ let app = null;
 let messaging = null;
 
 try {
-  // تهيئة التطبيق
+  // Initialize App
   app = initializeApp(firebaseConfig);
   
-  // تهيئة خدمة الإشعارات (Messaging)
-  // نتأكد أننا في المتصفح وأن الخدمة مدعومة
+  // Initialize Messaging (Browser only)
   if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
     try {
       messaging = getMessaging(app);
@@ -33,5 +32,4 @@ try {
   console.error("Firebase Initialization Error:", error);
 }
 
-// تصدير الأدوات لكي تستخدمها الملفات الأخرى مثل App.tsx
 export { app, messaging, getToken, onMessage };

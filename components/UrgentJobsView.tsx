@@ -9,8 +9,8 @@ import Logo from './Logo';
 import PostCard from './PostCard';
 import { Post } from '../types';
 import { getDisplayLocation } from '../data/locations';
-import { Capacitor } from '@capacitor/core';
-import { PushNotifications } from '@capacitor/push-notifications';
+// Updated Imports
+import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
 
 interface UrgentJobsViewProps {
   onFullScreenToggle: (isFull: boolean) => void;
@@ -143,54 +143,37 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
       setActiveTag(tagValue); 
   };
 
-  // 3. Optimistic Subscribe Handler
+  // 3. Optimistic Subscribe Handler using Service
   const handleToggleSubscribe = async () => {
-    // A. Permission Check
-    let permissionGranted = false;
-    const isWeb = Capacitor.getPlatform() === 'web';
+    const hasPermission = await requestPermissions();
 
-    try {
-        if (isWeb) {
-            if (typeof Notification !== 'undefined') {
-                const p = await Notification.requestPermission();
-                permissionGranted = p === 'granted';
-            }
-        } else {
-            const p = await PushNotifications.requestPermissions();
-            permissionGranted = p.receive === 'granted';
-        }
-    } catch (e) {
-        console.error("Permission request failed", e);
-    }
-
-    if (!permissionGranted) {
+    if (!hasPermission) {
       alert('⚠️ يرجى السماح بالإشعارات من إعدادات الهاتف لتتمكن من الاشتراك.');
       return;
     }
 
-    const fcmToken = localStorage.getItem('fcmToken');
+    const fcmToken = getStoredToken();
     const authToken = localStorage.getItem('token');
 
     if (!fcmToken || !authToken) {
+      if (authToken) registerForPushNotifications(authToken);
       alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
       return;
     }
 
-    // B. Optimistic Update (Immediate UI Change)
+    // Optimistic Update
     const previousState = isSubscribed;
     const newState = !previousState;
     const topicKey = 'urgent-jobs';
     
-    // 1. Update State
+    // Update State & Storage Immediately
     setIsSubscribed(newState);
-    
-    // 2. Update Storage Immediately
     const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
     if (newState) localSubs[topicKey] = true;
     else delete localSubs[topicKey];
     localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
 
-    // 3. Send Request in Background
+    // Send Request
     const action = newState ? 'subscribe' : 'unsubscribe';
     
     try {
@@ -206,19 +189,17 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
         })
       });
 
-      if (!response.ok) {
-        // Revert on failure
-        throw new Error("Server rejected subscription");
-      } else {
-          // Success Alert
+      if (response.ok) {
           alert(newState 
             ? '✅ تم تفعيل إشعارات الوظائف العاجلة بنجاح!' 
             : '🔕 تم إلغاء تفعيل إشعارات الوظائف العاجلة.'
           );
+      } else {
+        throw new Error("Server rejected subscription");
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      // C. Revert UI on Error
+      // Revert UI on Error
       setIsSubscribed(previousState);
       const revertedSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
       if (previousState) revertedSubs[topicKey] = true;
@@ -271,7 +252,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-                {/* --- NOTIFICATION BELL (Fixed Stability & Smooth Transition) --- */}
+                {/* --- NOTIFICATION BELL --- */}
                 <button 
                     onClick={handleToggleSubscribe}
                     className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 ${
