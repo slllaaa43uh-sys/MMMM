@@ -210,8 +210,11 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
         // Revert on failure
         throw new Error("Server rejected subscription");
       } else {
-          // Success Feedback (Optional, keeps it smooth)
-          // console.log(`Successfully ${action}d to urgent-jobs`);
+          // Success Alert
+          alert(newState 
+            ? '✅ تم تفعيل إشعارات الوظائف العاجلة بنجاح!' 
+            : '🔕 تم إلغاء تفعيل إشعارات الوظائف العاجلة.'
+          );
       }
     } catch (error) {
       console.error('Subscription error:', error);

@@ -101,21 +101,77 @@ const AppContent: React.FC = () => {
 
   // === NOTIFICATIONS INIT (NATIVE ANDROID ONLY) ===
   useEffect(() => {
+    // Helper to Sync Token & Subscribe
+    const syncFcmToken = async (fcmToken: string, authToken: string) => {
+        try {
+            // 1. Send Token to Server
+            await fetch(`${API_BASE_URL}/api/v1/users/fcm-token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ 
+                    fcmToken: fcmToken,
+                    platform: Capacitor.getPlatform() 
+                })
+            });
+
+            // 2. Subscribe to Default Topics (jobs / drivers / urgent / general)
+            const topics = ['urgent-jobs', 'general', 'drivers', 'jobs']; 
+            for (const topic of topics) {
+                // We use a fire-and-forget approach or await each to ensure subscription
+                await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        deviceToken: fcmToken,
+                        topic: topic
+                    })
+                }).catch(e => console.warn(`Failed to sub to ${topic}`, e));
+            }
+            console.log("✅ FCM Token Synced & Subscribed");
+        } catch (e) {
+            console.error("❌ FCM Sync Error:", e);
+        }
+    };
+
     const initNotifications = async () => {
       // Only run on Native Platforms (Android/iOS)
-      // We explicitly skip 'web' to disable web notifications as requested
       if (Capacitor.getPlatform() !== 'web') {
         try {
+          // A. Create Notification Channel (Critical for Android)
+          await PushNotifications.createChannel({
+              id: 'fcm_default_channel',
+              name: 'General Notifications',
+              description: 'General app notifications',
+              importance: 5,
+              visibility: 1,
+              lights: true,
+              vibration: true,
+              sound: 'default'
+          });
+
+          // B. Request Permissions & Register
           const permStatus = await PushNotifications.requestPermissions();
           if (permStatus.receive === 'granted') {
             await PushNotifications.register();
           }
 
+          // C. Setup Listeners
           await PushNotifications.removeAllListeners();
 
-          await PushNotifications.addListener('registration', token => {
-            console.log('✅ FCM Token (Native):', token.value);
-            localStorage.setItem('fcmToken', token.value);
+          await PushNotifications.addListener('registration', async tokenData => {
+            console.log('✅ FCM Token (Native):', tokenData.value);
+            localStorage.setItem('fcmToken', tokenData.value);
+            
+            // Sync if user is logged in
+            if (token) {
+                await syncFcmToken(tokenData.value, token);
+            }
           });
 
           await PushNotifications.addListener('registrationError', err => {
@@ -125,8 +181,20 @@ const AppContent: React.FC = () => {
           await PushNotifications.addListener('pushNotificationReceived', notification => {
             console.log('Push received:', notification);
           });
+          
+          await PushNotifications.addListener('pushNotificationActionPerformed', notification => {
+             console.log('Push action:', notification);
+             // Handle background tap logic here if needed
+          });
+
+          // D. Fallback: Sync existing token if already registered and just logged in
+          const existingFcm = localStorage.getItem('fcmToken');
+          if (existingFcm && token) {
+              await syncFcmToken(existingFcm, token);
+          }
+
         } catch (error) {
-          console.error('Native Push Error:', error);
+          console.error('Native Push Init Error:', error);
         }
       }
     };

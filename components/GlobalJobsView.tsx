@@ -255,8 +255,19 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       return;
     }
 
+    // Optimistic Update
+    const previousState = isSubscribed;
+    const newState = !previousState;
     const topicKey = 'global-jobs';
-    const action = isSubscribed ? 'unsubscribe' : 'subscribe';
+    
+    // Update State & Storage Immediately
+    setIsSubscribed(newState);
+    const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+    if (newState) localSubs[topicKey] = true;
+    else delete localSubs[topicKey];
+    localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
+
+    const action = newState ? 'subscribe' : 'unsubscribe';
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
@@ -272,24 +283,23 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       });
 
       if (response.ok) {
-        const newState = !isSubscribed;
-        setIsSubscribed(newState);
-        
-        const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
-        if (newState) localSubs[topicKey] = true;
-        else delete localSubs[topicKey];
-        localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
-
         alert(newState 
             ? '✅ تم تفعيل إشعارات الوظائف العالمية بنجاح!' 
             : '🔕 تم إلغاء تفعيل إشعارات الوظائف العالمية.'
         );
       } else {
-        const data = await response.json().catch(() => ({}));
-        alert(`❌ فشل تغيير حالة الإشتراك.\n${data.message || ''}`);
+        throw new Error("Server rejected subscription");
       }
     } catch (error) {
       console.error('Subscription error:', error);
+      
+      // Revert on Failure
+      setIsSubscribed(previousState);
+      const revertedSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+      if (previousState) revertedSubs[topicKey] = true;
+      else delete revertedSubs[topicKey];
+      localStorage.setItem('user_subscriptions', JSON.stringify(revertedSubs));
+
       alert('❌ خطأ في الاتصال');
     }
   };

@@ -54,7 +54,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
       }
   }, [activeSubPage]);
 
-  // 2. Handle Subscribe / Unsubscribe Toggle
+  // 2. Handle Subscribe / Unsubscribe Toggle (Optimistic)
   const handleToggleSubscribe = async () => {
     let permissionGranted = false;
     const isWeb = Capacitor.getPlatform() === 'web';
@@ -86,9 +86,20 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
       return;
     }
 
+    // Optimistic Update
+    const previousState = isSubscribed;
+    const newState = !previousState;
     const subTopic = activeSubPage ? activeSubPage.type : 'all';
     const topicKey = `jobs_${activeSubPage?.category}_${subTopic}`;
-    const action = isSubscribed ? 'unsubscribe' : 'subscribe';
+    
+    // Update State & Storage Immediately
+    setIsSubscribed(newState);
+    const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+    if (newState) localSubs[topicKey] = true;
+    else delete localSubs[topicKey];
+    localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
+
+    const action = newState ? 'subscribe' : 'unsubscribe';
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
@@ -105,15 +116,6 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
       });
 
       if (response.ok) {
-        const newState = !isSubscribed;
-        setIsSubscribed(newState);
-        
-        // Update Local Storage
-        const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
-        if (newState) localSubs[topicKey] = true;
-        else delete localSubs[topicKey];
-        localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
-
         const typeLabel = subTopic === 'seeker' ? 'للباحثين عن عمل' : (subTopic === 'employer' ? 'لأصحاب العمل' : 'العامة');
         const categoryName = activeSubPage ? t(activeSubPage.category) : '';
         
@@ -122,11 +124,19 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
             : `🔕 تم إلغاء تفعيل الإشعارات لقسم: ${categoryName} (${typeLabel}).`
         );
       } else {
-        alert('❌ فشل تغيير حالة الإشتراك. حاول مرة أخرى.');
+        throw new Error("Server rejected subscription");
       }
     } catch (error) {
       console.error('Subscription toggle error:', error);
-      alert('❌ خطأ في الاتصال بالخادم.');
+      
+      // Revert Optimistic Update
+      setIsSubscribed(previousState);
+      const revertedSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+      if (previousState) revertedSubs[topicKey] = true;
+      else delete revertedSubs[topicKey];
+      localStorage.setItem('user_subscriptions', JSON.stringify(revertedSubs));
+
+      alert('❌ خطأ في الاتصال بالخادم، تعذر تغيير الحالة.');
     }
   };
 
@@ -301,10 +311,10 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
               </div>
 
               <div className="flex items-center gap-2">
-                {/* --- زر الجرس: مع التفعيل/إلغاء التفعيل --- */}
+                {/* --- زر الجرس: مع التفعيل/إلغاء التفعيل (Fixed Icon Movement) --- */}
                 <button 
                   onClick={handleToggleSubscribe}
-                  className={`p-2 rounded-full transition-all duration-300 ${
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 ${
                       isSubscribed 
                       ? 'bg-purple-100 text-purple-600 shadow-inner ring-2 ring-purple-200' 
                       : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'

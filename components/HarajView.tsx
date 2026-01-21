@@ -48,7 +48,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       }
   }, [activeCategory]);
 
-  // 2. Handle Subscribe / Unsubscribe Toggle
+  // 2. Handle Subscribe / Unsubscribe Toggle (Optimistic)
   const handleToggleSubscribe = async () => {
     let permissionGranted = false;
     const isWeb = Capacitor.getPlatform() === 'web';
@@ -80,8 +80,19 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       return;
     }
 
+    // Optimistic Update
+    const previousState = isSubscribed;
+    const newState = !previousState;
     const topicKey = `haraj_${activeCategory}`;
-    const action = isSubscribed ? 'unsubscribe' : 'subscribe'; // Decide action based on current state
+    
+    // Update State & Storage Immediately
+    setIsSubscribed(newState);
+    const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+    if (newState) localSubs[topicKey] = true;
+    else delete localSubs[topicKey];
+    localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
+
+    const action = newState ? 'subscribe' : 'unsubscribe';
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
@@ -98,25 +109,24 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       });
 
       if (response.ok) {
-        const newState = !isSubscribed;
-        setIsSubscribed(newState);
-        
-        // Update Local Storage
-        const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
-        if (newState) localSubs[topicKey] = true;
-        else delete localSubs[topicKey];
-        localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
-
         alert(newState 
             ? `✅ تم تفعيل إشعارات قسم "${t(activeCategory || '')}" بنجاح!` 
             : `🔕 تم إلغاء تفعيل إشعارات قسم "${t(activeCategory || '')}".`
         );
       } else {
-        alert('❌ فشل تغيير حالة الإشتراك. حاول مرة أخرى.');
+        throw new Error("Server rejected subscription");
       }
     } catch (error) {
       console.error('Subscription toggle error:', error);
-      alert('❌ خطأ في الاتصال بالخادم.');
+      
+      // Revert Optimistic Update on Failure
+      setIsSubscribed(previousState);
+      const revertedSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+      if (previousState) revertedSubs[topicKey] = true;
+      else delete revertedSubs[topicKey];
+      localStorage.setItem('user_subscriptions', JSON.stringify(revertedSubs));
+
+      alert('❌ خطأ في الاتصال بالخادم، تعذر تغيير الحالة.');
     }
   };
 
@@ -275,10 +285,10 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
             </div>
 
             <div className="flex items-center gap-2">
-              {/* --- زر الجرس: مع التفعيل/إلغاء التفعيل --- */}
+              {/* --- زر الجرس: مع التفعيل/إلغاء التفعيل (Fixed Dimensions) --- */}
               <button 
                 onClick={handleToggleSubscribe}
-                className={`p-2 rounded-full transition-all duration-300 ${
+                className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 ${
                     isSubscribed 
                     ? 'bg-orange-100 text-orange-600 shadow-inner ring-2 ring-orange-200' 
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'
