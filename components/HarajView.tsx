@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowRight, ChevronLeft, Store, MapPin, Loader2, Megaphone, Bell
+  ArrowRight, ChevronLeft, Store, MapPin, Loader2, Megaphone, Bell, BellOff
 } from 'lucide-react';
 import PostCard from './PostCard';
 import { Post } from '../types';
@@ -25,6 +25,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const handleCategoryClick = (name: string) => {
     setLoading(true); 
@@ -38,9 +39,17 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     setPosts([]);
   };
 
-  // وظيفة الاشتراك في إشعارات الحراج (داخل القسم)
-  const handleSubscribeHaraj = async () => {
-    // 1. التحقق من إذن النظام
+  // 1. Check Local Subscription State
+  useEffect(() => {
+      if (activeCategory) {
+          const topicKey = `haraj_${activeCategory}`;
+          const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+          setIsSubscribed(!!localSubs[topicKey]);
+      }
+  }, [activeCategory]);
+
+  // 2. Handle Subscribe / Unsubscribe Toggle
+  const handleToggleSubscribe = async () => {
     let permissionGranted = false;
     const isWeb = Capacitor.getPlatform() === 'web';
 
@@ -59,26 +68,23 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     }
 
     if (!permissionGranted) {
-      alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتتمكن من الاشتراك.');
+      alert('⚠️ يرجى السماح بالإشعارات من إعدادات الهاتف لتتمكن من الاشتراك.');
       return;
     }
 
     const fcmToken = localStorage.getItem('fcmToken');
     const authToken = localStorage.getItem('token');
 
-    // 2. التحقق من توفر التوكن والاتصال
-    if (!fcmToken) {
-      alert('⏳ جاري تهيئة خدمة الإشعارات.. يرجى الانتظار قليلاً والمحاولة مرة أخرى.');
-      return;
-    }
-
-    if (!authToken) {
+    if (!fcmToken || !authToken) {
       alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
       return;
     }
 
+    const topicKey = `haraj_${activeCategory}`;
+    const action = isSubscribed ? 'unsubscribe' : 'subscribe'; // Decide action based on current state
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,14 +98,25 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       });
 
       if (response.ok) {
-        alert(`✅ تم تفعيل إشعارات قسم "${t(activeCategory || '')}" بنجاح!`);
+        const newState = !isSubscribed;
+        setIsSubscribed(newState);
+        
+        // Update Local Storage
+        const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+        if (newState) localSubs[topicKey] = true;
+        else delete localSubs[topicKey];
+        localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
+
+        alert(newState 
+            ? `✅ تم تفعيل إشعارات قسم "${t(activeCategory || '')}" بنجاح!` 
+            : `🔕 تم إلغاء تفعيل إشعارات قسم "${t(activeCategory || '')}".`
+        );
       } else {
-        const data = await response.json().catch(() => ({}));
-        alert(`❌ فشل تفعيل الإشعارات.\nالسبب: ${data.message || 'خطأ غير معروف'}`);
+        alert('❌ فشل تغيير حالة الإشتراك. حاول مرة أخرى.');
       }
     } catch (error) {
-      console.error('Subscription error:', error);
-      alert('❌ خطأ في الاتصال بالخادم. تأكد من اتصال الإنترنت.');
+      console.error('Subscription toggle error:', error);
+      alert('❌ خطأ في الاتصال بالخادم.');
     }
   };
 
@@ -258,13 +275,17 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
             </div>
 
             <div className="flex items-center gap-2">
-              {/* --- زر الجرس: يظهر هنا فقط داخل القسم --- */}
+              {/* --- زر الجرس: مع التفعيل/إلغاء التفعيل --- */}
               <button 
-                onClick={handleSubscribeHaraj}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-orange-600 dark:text-orange-400"
-                title="تفعيل إشعارات هذا القسم"
+                onClick={handleToggleSubscribe}
+                className={`p-2 rounded-full transition-all duration-300 ${
+                    isSubscribed 
+                    ? 'bg-orange-100 text-orange-600 shadow-inner ring-2 ring-orange-200' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'
+                }`}
+                title={isSubscribed ? "إلغاء تفعيل الإشعارات" : "تفعيل إشعارات هذا القسم"}
               >
-                <Bell size={20} strokeWidth={2} />
+                {isSubscribed ? <Bell size={20} fill="currentColor" /> : <BellOff size={20} />}
               </button>
 
               <button 
@@ -333,8 +354,6 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
            </div>
            
            <div className="flex items-center gap-2">
-             {/* --- تم حذف زر الجرس من هنا --- */}
-
              <button 
                 onClick={onLocationClick}
                 className="flex items-center gap-1.5 bg-white/80 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 py-1.5 px-3 rounded-full transition-colors border border-gray-100 dark:border-gray-700 shadow-sm"

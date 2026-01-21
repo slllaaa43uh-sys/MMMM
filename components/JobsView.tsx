@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  Briefcase, Users, ChevronLeft, X, ArrowRight, MapPin, Loader2, Megaphone, Bell
+  Briefcase, Users, ChevronLeft, X, ArrowRight, MapPin, Loader2, Megaphone, Bell, BellOff
 } from 'lucide-react';
 import PostCard from './PostCard';
 import { Post } from '../types';
@@ -27,6 +27,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
   const [activeSubPage, setActiveSubPage] = useState<{ type: 'seeker' | 'employer', category: string } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   const handleSubPageSelect = (type: 'seeker' | 'employer') => {
     if (selectedCategory) {
@@ -43,9 +44,18 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     setPosts([]);
   };
 
-  // وظيفة الاشتراك في إشعارات الوظائف (داخل القسم)
-  const handleSubscribeJobs = async () => {
-    // 1. التحقق من إذن النظام
+  // 1. Check Local Subscription State
+  useEffect(() => {
+      if (activeSubPage) {
+          const subTopic = activeSubPage.type;
+          const topicKey = `jobs_${activeSubPage.category}_${subTopic}`;
+          const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+          setIsSubscribed(!!localSubs[topicKey]);
+      }
+  }, [activeSubPage]);
+
+  // 2. Handle Subscribe / Unsubscribe Toggle
+  const handleToggleSubscribe = async () => {
     let permissionGranted = false;
     const isWeb = Capacitor.getPlatform() === 'web';
 
@@ -64,30 +74,24 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     }
 
     if (!permissionGranted) {
-      alert('⚠️ يرجى السماح بالإشعارات من إعدادات هاتفك لتتمكن من الاشتراك.');
+      alert('⚠️ يرجى السماح بالإشعارات من إعدادات الهاتف لتتمكن من الاشتراك.');
       return;
     }
 
     const fcmToken = localStorage.getItem('fcmToken');
     const authToken = localStorage.getItem('token');
 
-    // 2. التحقق من توفر التوكن والاتصال
-    if (!fcmToken) {
-      alert('⏳ جاري تهيئة خدمة الإشعارات.. يرجى الانتظار قليلاً والمحاولة مرة أخرى.');
-      return;
-    }
-
-    if (!authToken) {
+    if (!fcmToken || !authToken) {
       alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
       return;
     }
 
-    try {
-      // تحديد الموضوع الفرعي بناءً على الصفحة الحالية (باحث أو صاحب عمل)
-      const subTopic = activeSubPage ? activeSubPage.type : 'all';
-      const categoryName = activeSubPage ? t(activeSubPage.category) : '';
+    const subTopic = activeSubPage ? activeSubPage.type : 'all';
+    const topicKey = `jobs_${activeSubPage?.category}_${subTopic}`;
+    const action = isSubscribed ? 'unsubscribe' : 'subscribe';
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,15 +105,28 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
       });
 
       if (response.ok) {
+        const newState = !isSubscribed;
+        setIsSubscribed(newState);
+        
+        // Update Local Storage
+        const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+        if (newState) localSubs[topicKey] = true;
+        else delete localSubs[topicKey];
+        localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
+
         const typeLabel = subTopic === 'seeker' ? 'للباحثين عن عمل' : (subTopic === 'employer' ? 'لأصحاب العمل' : 'العامة');
-        alert(`✅ تم تفعيل الإشعارات بنجاح!\nستصلك تنبيهات جديدة في قسم: ${categoryName} (${typeLabel}).`);
+        const categoryName = activeSubPage ? t(activeSubPage.category) : '';
+        
+        alert(newState
+            ? `✅ تم تفعيل الإشعارات لقسم: ${categoryName} (${typeLabel}).`
+            : `🔕 تم إلغاء تفعيل الإشعارات لقسم: ${categoryName} (${typeLabel}).`
+        );
       } else {
-        const data = await response.json().catch(() => ({}));
-        alert(`❌ فشل تفعيل الإشعارات.\nالسبب: ${data.message || 'خطأ غير معروف'}`);
+        alert('❌ فشل تغيير حالة الإشتراك. حاول مرة أخرى.');
       }
     } catch (error) {
-      console.error('Subscription error:', error);
-      alert('❌ خطأ في الاتصال بالخادم. تأكد من اتصال الإنترنت.');
+      console.error('Subscription toggle error:', error);
+      alert('❌ خطأ في الاتصال بالخادم.');
     }
   };
 
@@ -284,13 +301,17 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
               </div>
 
               <div className="flex items-center gap-2">
-                {/* --- زر الجرس: يظهر هنا فقط داخل القسم --- */}
+                {/* --- زر الجرس: مع التفعيل/إلغاء التفعيل --- */}
                 <button 
-                  onClick={handleSubscribeJobs}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-purple-600 dark:text-purple-400"
-                  title="تفعيل إشعارات هذا القسم"
+                  onClick={handleToggleSubscribe}
+                  className={`p-2 rounded-full transition-all duration-300 ${
+                      isSubscribed 
+                      ? 'bg-purple-100 text-purple-600 shadow-inner ring-2 ring-purple-200' 
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'
+                  }`}
+                  title={isSubscribed ? "إلغاء تفعيل الإشعارات" : "تفعيل إشعارات هذا القسم"}
                 >
-                  <Bell size={20} strokeWidth={2} />
+                  {isSubscribed ? <Bell size={20} fill="currentColor" /> : <BellOff size={20} />}
                 </button>
 
                 <button 
@@ -354,8 +375,6 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
            </div>
            
            <div className="flex items-center gap-2">
-             {/* --- تم حذف زر الجرس من هنا --- */}
-
              <button 
                 onClick={onLocationClick}
                 className="flex items-center gap-1.5 bg-white/80 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 py-1.5 px-3 rounded-full transition-colors border border-gray-100 dark:border-gray-700 shadow-sm"

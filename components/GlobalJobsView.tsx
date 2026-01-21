@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell } from 'lucide-react';
+import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell, BellOff } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
 import { Capacitor } from '@capacitor/core';
@@ -121,6 +121,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [imgErrorState, setImgErrorState] = useState<Record<string, boolean>>({});
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   // Translation States Map: jobId -> State
   const [translationStates, setTranslationStates] = useState<Record<string, TranslationState>>({});
@@ -171,6 +172,9 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
         setPage(1);
         setHasMore(true);
         fetchJobs(1);
+        
+        const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+        setIsSubscribed(!!localSubs['global-jobs']);
     }
   }, [isActive, fetchJobs]);
 
@@ -189,7 +193,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       setImgErrorState(prev => ({ ...prev, [id]: true }));
   };
 
-  const handleSubscribe = async () => {
+  const handleToggleSubscribe = async () => {
     let permissionGranted = false;
     const isWeb = Capacitor.getPlatform() === 'web';
 
@@ -225,8 +229,11 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       return;
     }
 
+    const topicKey = 'global-jobs';
+    const action = isSubscribed ? 'unsubscribe' : 'subscribe';
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -239,10 +246,22 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
       });
 
       if (response.ok) {
-        alert('✅ تم تفعيل إشعارات الوظائف العالمية بنجاح!');
+        const newState = !isSubscribed;
+        setIsSubscribed(newState);
+        
+        // Update Local Storage
+        const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+        if (newState) localSubs[topicKey] = true;
+        else delete localSubs[topicKey];
+        localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
+
+        alert(newState 
+            ? '✅ تم تفعيل إشعارات الوظائف العالمية بنجاح!' 
+            : '🔕 تم إلغاء تفعيل إشعارات الوظائف العالمية.'
+        );
       } else {
         const data = await response.json().catch(() => ({}));
-        alert(`❌ فشل تفعيل الإشعارات.\n${data.message || ''}`);
+        alert(`❌ فشل تغيير حالة الإشتراك.\n${data.message || ''}`);
       }
     } catch (error) {
       console.error('Subscription error:', error);
@@ -378,11 +397,15 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
            
            {/* Notification Bell */}
            <button 
-             onClick={handleSubscribe}
-             className="p-2 rounded-full hover:bg-gray-100 transition-colors text-green-600"
-             title="تفعيل إشعارات الوظائف العالمية"
+             onClick={handleToggleSubscribe}
+             className={`p-2 rounded-full transition-all duration-300 ${
+                 isSubscribed 
+                 ? 'bg-green-100 text-green-600 shadow-inner ring-2 ring-green-200' 
+                 : 'hover:bg-gray-100 text-gray-400'
+             }`}
+             title={isSubscribed ? "إلغاء تفعيل الإشعارات" : "تفعيل إشعارات الوظائف العالمية"}
            >
-             <Bell size={20} strokeWidth={2} />
+             {isSubscribed ? <Bell size={20} fill="currentColor" /> : <BellOff size={20} />}
            </button>
         </div>
       </div>
