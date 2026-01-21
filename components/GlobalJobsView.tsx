@@ -68,44 +68,76 @@ const TARGET_LANGUAGES = [
   { code: "fa", label: "فارسی" }, 
 ];
 
-// --- Internal Component for Smooth Image Loading ---
-const JobCardImage = ({ src, alt }: { src: string, alt: string }) => {
+// --- 1. Isolated Component for Main Job Image (No Flicker) ---
+const JobCardImage = ({ src, alt }: { src: string | null, alt: string }) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isError, setIsError] = useState(false);
 
+    // If no source, show placeholder immediately
+    if (!src) {
+        return (
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                <Briefcase className="text-gray-300 w-16 h-16 opacity-50" />
+            </div>
+        );
+    }
+
     return (
         <div className="absolute inset-0 w-full h-full bg-gray-100 overflow-hidden">
-            {/* 1. Loading Skeleton (Shows until loaded or error) */}
+            {/* Loading Skeleton */}
             {!isLoaded && !isError && (
                 <div className="absolute inset-0 bg-gray-200 animate-pulse z-10 flex items-center justify-center">
                     <ImageIcon className="text-gray-300 w-8 h-8 opacity-50" />
                 </div>
             )}
 
-            {/* 2. The Real Image */}
-            <img 
-                src={src} 
-                alt={alt} 
-                className={`w-full h-full object-cover transition-all duration-700 ${isLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
-                onLoad={() => setIsLoaded(true)}
-                onError={() => setIsError(true)}
-                loading="lazy"
-            />
-
-            {/* 3. Gradient Overlay (Only if loaded) */}
-            {isLoaded && <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />}
-            
-            {/* 4. Error Fallback (Only shows if explicitly failed) */}
-            {isError && (
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center z-20">
-                    <Building2 className="text-gray-300 w-12 h-12 opacity-50" />
+            {/* Actual Image */}
+            {!isError ? (
+                <img 
+                    src={src} 
+                    alt={alt} 
+                    className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    onLoad={() => setIsLoaded(true)}
+                    onError={() => setIsError(true)}
+                    loading="lazy"
+                />
+            ) : (
+                /* Error Fallback */
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center z-0">
+                    <Briefcase className="text-gray-300 w-12 h-12 opacity-50" />
                 </div>
             )}
+
+            {/* Gradient Overlay (Always on top of image) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none z-10" />
         </div>
     );
 };
 
-// Interface for Translation State per Job (Updated to include Title and Location)
+// --- 2. Isolated Component for Company Logo (Fixes Disappearing Issue) ---
+const CompanyLogo = ({ src, alt }: { src: string | null, alt: string }) => {
+    const [imgError, setImgError] = useState(false);
+
+    if (!src || imgError) {
+        return (
+            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm text-gray-400 border border-gray-100">
+                <Building2 size={24} />
+            </div>
+        );
+    }
+
+    return (
+        <img 
+            src={src} 
+            alt={alt} 
+            className="w-12 h-12 object-contain bg-white rounded-lg p-1 shadow-sm border border-gray-100" 
+            onError={() => setImgError(true)}
+            loading="lazy"
+        />
+    );
+};
+
+// Interface for Translation State per Job
 interface TranslationState {
     translatedTitle: string | null;
     translatedLocation: string | null;
@@ -117,10 +149,9 @@ interface TranslationState {
 const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
   const { t, language, translationTarget, setTranslationTarget } = useLanguage();
   const [jobs, setJobs] = useState<ExternalJob[]>([]);
-  const [loading, setLoading] = useState(true); // Initial loading
+  const [loading, setLoading] = useState(true); 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [imgErrorState, setImgErrorState] = useState<Record<string, boolean>>({});
   const [isSubscribed, setIsSubscribed] = useState(false);
 
   // Translation States Map: jobId -> State
@@ -166,7 +197,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
     }
   }, []);
 
-  // Initial Load
   useEffect(() => {
     if (isActive) {
         setPage(1);
@@ -187,10 +217,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
           window.open(pendingUrl, '_blank');
           setPendingUrl(null);
       }
-  };
-
-  const handleImageError = (id: string) => {
-      setImgErrorState(prev => ({ ...prev, [id]: true }));
   };
 
   const handleToggleSubscribe = async () => {
@@ -249,7 +275,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
         const newState = !isSubscribed;
         setIsSubscribed(newState);
         
-        // Update Local Storage
         const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
         if (newState) localSubs[topicKey] = true;
         else delete localSubs[topicKey];
@@ -269,9 +294,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
     }
   };
 
-  // --- Translation Logic (Full Item: Title, Location, Description) ---
   const handleTranslate = async (jobId: string, title: string, location: string, description: string) => {
-      // 1. Check current state for this job
       const currentState = translationStates[jobId] || { 
           translatedTitle: null, 
           translatedLocation: null, 
@@ -280,7 +303,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
           showTranslated: false 
       };
 
-      // 2. Toggle if already translated
       if (currentState.showTranslated) {
           setTranslationStates(prev => ({
               ...prev,
@@ -289,7 +311,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
           return;
       }
 
-      // 3. If cached but hidden, just show it
       if (currentState.translatedDescription) {
           setTranslationStates(prev => ({
               ...prev,
@@ -298,34 +319,24 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
           return;
       }
 
-      // 4. Start Translating
       setTranslationStates(prev => ({
           ...prev,
           [jobId]: { ...currentState, isTranslating: true }
       }));
 
       try {
-          // Detect Source Language based on characters (Simple Heuristic on description)
           const isArabicContent = /[\u0600-\u06FF]/.test(description);
           const sourceLang = isArabicContent ? 'ar' : 'en'; 
-
-          // Determine Target Language
           let targetLang = translationTarget;
 
-          // If source matches target, flip target
           if (sourceLang === targetLang) {
               targetLang = sourceLang === 'ar' ? 'en' : 'ar';
           }
 
           const langpair = `${sourceLang}|${targetLang}`;
-          
-          // We will send two requests in parallel to avoid hitting single query limits with long descriptions
-          // 1. Title + Location (Combined with delimiter)
-          // 2. Description (Truncated)
-          
           const delimiter = " ||| ";
           const metaQuery = `${title}${delimiter}${location}`;
-          const descQuery = description.substring(0, 500); // API limit safety
+          const descQuery = description.substring(0, 500); 
 
           const [metaRes, descRes] = await Promise.all([
               fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(metaQuery)}&langpair=${langpair}`),
@@ -345,7 +356,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                   newTitle = parts[0].trim();
                   newLocation = parts[1].trim();
               } else {
-                  // Fallback if delimiter messed up
                   newTitle = metaData.responseData.translatedText; 
               }
           }
@@ -421,8 +431,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
         ) : (
             jobs.map((job) => {
                 const jobId = job._id || job.jobId;
-                const hasLogoError = imgErrorState[jobId];
-                const logoSrc = hasLogoError ? null : job.employer.logo;
                 
                 // Get Translation State for this specific job
                 const tState = translationStates[jobId] || { 
@@ -433,14 +441,12 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                     showTranslated: false 
                 };
                 
-                // Determine what to display (Original vs Translated)
                 const originalLocation = [job.location.city, job.location.country].filter(Boolean).join(', ');
                 
                 const displayTitle = tState.showTranslated && tState.translatedTitle ? tState.translatedTitle : job.title;
                 const displayLocation = tState.showTranslated && tState.translatedLocation ? tState.translatedLocation : originalLocation;
                 const displayText = tState.showTranslated && tState.translatedDescription ? tState.translatedDescription : job.description;
 
-                // Format Salary if available
                 let displaySalary = '';
                 if (job.salary?.min || job.salary?.max) {
                     const min = job.salary.min ? job.salary.min.toLocaleString() : '';
@@ -451,10 +457,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                     else if (max) displaySalary = `Up to ${currency}${max}`;
                 }
 
-                // Format Date
                 const displayDate = job.postedAt ? new Date(job.postedAt).toLocaleDateString() : '';
-
-                // Employment Type
                 const displayCategory = job.employmentType;
 
                 return (
@@ -463,42 +466,28 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                     {/* Full Width Visual Container */}
                     <div className="w-full aspect-video bg-gray-50 relative overflow-hidden group select-none">
                        
-                       {/* Enhanced Image Component */}
-                       {job.media?.url ? (
-                           <JobCardImage 
-                               src={job.media.url} 
-                               alt={job.title} 
-                           />
-                       ) : (
-                           <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                               <Briefcase className="text-gray-300 w-16 h-16 opacity-50" />
-                           </div>
-                       )}
+                       {/* 1. Main Job Image (Background) */}
+                       <JobCardImage 
+                           src={job.media?.url} 
+                           alt={job.title} 
+                       />
                        
-                       {/* Company Logo - Top Left */}
-                       <div className="absolute top-3 left-3 z-10">
-                           {logoSrc ? (
-                               <img 
-                                 src={logoSrc} 
-                                 alt={job.employer.name} 
-                                 className="w-12 h-12 object-contain drop-shadow-md bg-white rounded-lg p-1" 
-                                 onError={() => handleImageError(jobId)}
-                               />
-                           ) : (
-                               <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm text-gray-400">
-                                   <Building2 size={24} />
-                               </div>
-                           )}
+                       {/* 2. Company Logo (Top Left) - High Z-Index to stay visible */}
+                       <div className="absolute top-3 left-3 z-30">
+                           <CompanyLogo 
+                               src={job.employer.logo} 
+                               alt={job.employer.name} 
+                           />
                        </div>
 
                        {/* Company Name Badge */}
-                       <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-md max-w-[70%] truncate z-10">
+                       <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-md max-w-[70%] truncate z-20">
                          {job.employer.name}
                        </div>
                        
                        {/* Salary Badge */}
                        {displaySalary && (
-                           <div className="absolute bottom-3 right-3 bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-1 z-10">
+                           <div className="absolute bottom-3 right-3 bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-1 z-20">
                              <DollarSign size={10} />
                              {displaySalary}
                            </div>
@@ -513,7 +502,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                                     <Briefcase size={20} />
                                 </div>
                                 <div className="flex flex-col gap-1 w-full">
-                                    {/* Title (Translated or Original) */}
+                                    {/* Title */}
                                     {displayTitle && (
                                         <h3 
                                             className="font-bold text-gray-900 text-sm leading-tight line-clamp-2"
@@ -524,7 +513,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                                     )}
                                     
                                     <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                                        {/* Location (Translated or Original) */}
                                         <span className="flex items-center gap-1" dir="auto">
                                             <MapPin size={10} /> {displayLocation}
                                         </span>
@@ -546,7 +534,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                                         )}
                                     </div>
 
-                                    {/* Description Preview (Original or Translated) */}
+                                    {/* Description */}
                                     <div className="mt-1">
                                         <p 
                                             className={`text-xs text-gray-600 leading-relaxed whitespace-pre-wrap text-start line-clamp-3`}
@@ -555,7 +543,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                                             {displayText}
                                         </p>
                                         
-                                        {/* Translation Controls (In-Place) */}
+                                        {/* Translation Controls */}
                                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleTranslate(jobId, job.title, originalLocation, job.description); }} 
@@ -585,7 +573,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                                 </div>
                             </div>
                             
-                            {/* External Link Button (Only this opens the external URL) */}
+                            {/* External Link Button */}
                             <button 
                                 onClick={() => handleJobClickRequest(job.applyLink)} 
                                 className="text-blue-600 bg-blue-50 p-2.5 rounded-full hover:bg-blue-100 transition-colors shadow-sm"
@@ -602,6 +590,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
         )}
       </div>
 
+      {/* Load More & Other Modals... (Same as before) */}
       {!loading && jobs.length > 0 && hasMore && (
           <div className="p-4 flex justify-center">
               <button 
@@ -621,7 +610,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
           </div>
       )}
 
-      {/* TRANSLATION SETTINGS SHEET */}
+      {/* Translation & Warning Modals (Unchanged) */}
       {isTranslationSheetOpen && createPortal(
         <div className="fixed inset-0 z-[10002] flex items-end justify-center">
             <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsTranslationSheetOpen(false)} />
@@ -637,7 +626,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                                     key={lang.code} 
                                     onClick={() => { 
                                         setTranslationTarget(lang.code); 
-                                        // Reset all translations when language changes so they are re-fetched
                                         setTranslationStates({}); 
                                         setIsTranslationSheetOpen(false); 
                                     }} 
@@ -653,7 +641,6 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
         </div>, document.body
       )}
 
-      {/* WARNING POPUP MODAL */}
       {pendingUrl && createPortal(
           <div className="fixed inset-0 z-[10003] flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onClick={() => setPendingUrl(null)} />

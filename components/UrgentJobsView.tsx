@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowRight, MapPin, Clock, Zap, Filter, Search, Briefcase, DollarSign, Bell, Layers
+  ArrowRight, MapPin, Clock, Zap, Filter, Search, Briefcase, DollarSign, Bell, BellOff, Layers, Loader2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
@@ -33,6 +33,9 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
   
   // State for the active filter (Tag). null means "All"
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  
+  // Notification State
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   // Helper for relative time
   const getRelativeTime = (dateStr: string) => {
@@ -50,6 +53,13 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
       return language === 'ar' ? 'منذ فترة' : 'A while ago';
   };
 
+  // 1. Initialize Notification State from Local Storage (Fast Load)
+  useEffect(() => {
+      const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+      setIsSubscribed(!!localSubs['urgent-jobs']);
+  }, []);
+
+  // 2. Fetch Data
   useEffect(() => {
     const fetchUrgentJobs = async () => {
         setLoading(true);
@@ -70,21 +80,19 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
                 const data = await response.json();
                 const rawPosts = data.posts || [];
                 
-                // FILTER: Exclude my own posts (حل مشكلة ظهور منشوراتك)
+                // FILTER: Exclude my own posts
                 const filteredPosts = rawPosts.filter((p: any) => {
                     const postUserId = p.user?._id || p.user?.id || p.user;
                     return String(postUserId) !== String(currentUserId);
                 });
                 
                 const mappedPosts = filteredPosts.map((p: any) => {
-                    // Logic to display location correctly on the card
                     let locationString = t('location_general');
                     
                     if (p.country && p.country !== 'عام') {
                          const loc = getDisplayLocation(p.country, p.city === 'كل المدن' ? null : p.city, language as 'ar'|'en');
                          locationString = loc.cityDisplay ? `${loc.countryDisplay} | ${loc.cityDisplay}` : loc.countryDisplay;
                     } else if (p.location) {
-                         // Fallback if country is missing but location text exists
                          locationString = p.location;
                     }
 
@@ -108,7 +116,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
                         jobStatus: 'open',
                         contactPhone: p.contactPhone,
                         contactEmail: p.contactEmail, 
-                        contactMethods: p.contactMethods || [], // Ensure methods are passed so button works correctly
+                        contactMethods: p.contactMethods || [], 
                         specialTag: p.specialTag 
                     };
                 });
@@ -125,25 +133,19 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
   }, [currentLocation, language, t]); 
 
   const handleTagClick = (tagKey: string) => {
-      // Special case for "All" button
       if (tagKey === 'urgent_opt_all') {
-          if (activeTag === null) return; // Already on "All", do nothing
+          if (activeTag === null) return; 
           setActiveTag(null);
           return;
       }
-
       const tagValue = t(tagKey);
-      
-      // If clicked active tag again, DO NOTHING (No toggle off)
-      if (activeTag === activeTag) { 
-         if (activeTag === tagValue) return;
-      }
-      
-      // Switch to new tag
+      if (activeTag === tagValue) return;
       setActiveTag(tagValue); 
   };
 
-  const handleSubscribe = async () => {
+  // 3. Optimistic Subscribe Handler
+  const handleToggleSubscribe = async () => {
+    // A. Permission Check
     let permissionGranted = false;
     const isWeb = Capacitor.getPlatform() === 'web';
 
@@ -162,25 +164,37 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
     }
 
     if (!permissionGranted) {
-      alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العاجلة');
+      alert('⚠️ يرجى السماح بالإشعارات من إعدادات الهاتف لتتمكن من الاشتراك.');
       return;
     }
 
     const fcmToken = localStorage.getItem('fcmToken');
     const authToken = localStorage.getItem('token');
 
-    if (!fcmToken) {
-      alert('⏳ جاري تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
+    if (!fcmToken || !authToken) {
+      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
       return;
     }
 
-    if (!authToken) {
-      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات');
-      return;
-    }
+    // B. Optimistic Update (Immediate UI Change)
+    const previousState = isSubscribed;
+    const newState = !previousState;
+    const topicKey = 'urgent-jobs';
+    
+    // 1. Update State
+    setIsSubscribed(newState);
+    
+    // 2. Update Storage Immediately
+    const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+    if (newState) localSubs[topicKey] = true;
+    else delete localSubs[topicKey];
+    localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
 
+    // 3. Send Request in Background
+    const action = newState ? 'subscribe' : 'unsubscribe';
+    
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -192,15 +206,23 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
         })
       });
 
-      if (response.ok) {
-        alert('✅ تم تفعيل إشعارات الوظائف العاجلة بنجاح!');
+      if (!response.ok) {
+        // Revert on failure
+        throw new Error("Server rejected subscription");
       } else {
-        const data = await response.json().catch(() => ({}));
-        alert(`❌ فشل تفعيل الإشعارات.\n${data.message || ''}`);
+          // Success Feedback (Optional, keeps it smooth)
+          // console.log(`Successfully ${action}d to urgent-jobs`);
       }
     } catch (error) {
       console.error('Subscription error:', error);
-      alert('❌ خطأ في الاتصال');
+      // C. Revert UI on Error
+      setIsSubscribed(previousState);
+      const revertedSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+      if (previousState) revertedSubs[topicKey] = true;
+      else delete revertedSubs[topicKey];
+      localStorage.setItem('user_subscriptions', JSON.stringify(revertedSubs));
+      
+      alert('❌ حدث خطأ في الاتصال، تعذر تغيير حالة الاشتراك.');
     }
   };
 
@@ -212,12 +234,8 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
   // Helper to determine button style
   const getButtonStyle = (tagKey: string) => {
       let isActive = false;
-      
-      if (tagKey === 'urgent_opt_all') {
-          isActive = activeTag === null;
-      } else {
-          isActive = activeTag === t(tagKey);
-      }
+      if (tagKey === 'urgent_opt_all') isActive = activeTag === null;
+      else isActive = activeTag === t(tagKey);
       
       if (isActive) {
           return "bg-red-600 text-white shadow-md shadow-red-200 border-transparent";
@@ -241,7 +259,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
                             {t('urgent_jobs_title')}
                         </h2>
                         {/* Title Badge */}
-                        <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse shadow-sm shadow-red-200">
+                        <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm shadow-red-200">
                             {t('urgent_badge')}
                         </span>
                     </div>
@@ -250,12 +268,21 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+                {/* --- NOTIFICATION BELL (Fixed Stability & Smooth Transition) --- */}
                 <button 
-                    onClick={handleSubscribe}
-                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-600 dark:text-red-400"
-                    title="تفعيل إشعارات الوظائف العاجلة"
+                    onClick={handleToggleSubscribe}
+                    className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 ${
+                        isSubscribed 
+                        ? 'bg-red-50 text-red-600 border border-red-100 shadow-inner' 
+                        : 'bg-white hover:bg-gray-50 text-gray-400 border border-gray-100'
+                    }`}
+                    title={isSubscribed ? "إلغاء تفعيل الإشعارات" : "تفعيل إشعارات الوظائف العاجلة"}
                 >
-                    <Bell size={20} strokeWidth={2} />
+                    {isSubscribed ? (
+                        <Bell size={18} fill="currentColor" className="transition-transform duration-300" />
+                    ) : (
+                        <BellOff size={18} className="transition-transform duration-300" />
+                    )}
                 </button>
 
                 <button 
@@ -270,7 +297,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
             </div>
         </div>
 
-        {/* Interactive Filter Strip - COMPACT & FIXED SCROLL */}
+        {/* Interactive Filter Strip */}
         <div className="w-full overflow-x-auto no-scrollbar pb-2 pt-1">
             <div className="flex items-center gap-2 px-4 min-w-max">
                 <button 
@@ -294,7 +321,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
                     <DollarSign size={10} /> {t('daily_payment')}
                 </button>
 
-                {/* "All" Button - Ensures it's reachable */}
+                {/* "All" Button */}
                 <button 
                     onClick={() => handleTagClick('urgent_opt_all')}
                     className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold whitespace-nowrap transition-all border ${getButtonStyle('urgent_opt_all')}`}
