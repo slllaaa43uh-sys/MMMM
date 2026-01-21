@@ -157,6 +157,7 @@ const translations = {
     disabled: "معطل",
     more_options: "المزيد من الخيارات",
     drafts: "المسودات",
+    load_more: "عرض المزيد",
     
     // Translation
     translate_post: "ترجمة المنشور",
@@ -666,6 +667,7 @@ const translations = {
     disabled: "Disabled",
     more_options: "More Options",
     drafts: "Drafts",
+    load_more: "Show More",
     
     // Translation
     translate_post: "Translate",

@@ -30,6 +30,7 @@ import { API_BASE_URL } from './constants';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { ChevronsDown, Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
@@ -54,6 +55,12 @@ const AppContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [isLocationDrawerOpen, setIsLocationDrawerOpen] = useState(false);
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false);
+  const POSTS_PER_PAGE = 10;
 
   useEffect(() => {
     const metaThemeColor = document.getElementById('theme-color-meta');
@@ -547,39 +554,54 @@ const AppContent: React.FC = () => {
 
   const handleOpenNotifications = () => { setIsNotificationsOpen(true); setUnreadNotificationsCount(0); };
 
-  // --- FIXED FETCHING LOGIC FOR HOME FEED ---
-  useEffect(() => {
+  // --- FIXED FETCHING LOGIC FOR HOME FEED WITH PAGINATION ---
+  const fetchFeedPosts = async (pageNum: number, isRefresh: boolean = false) => {
     if (!token) return;
-    const fetchData = async () => {
-      // Only set loading if we don't have posts to avoid flicker
+    
+    if (isRefresh) {
       if (posts.length === 0) setIsLoading(true);
-      try {
-        const headers = { 'Authorization': `Bearer ${token}` };
-        const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
-        const cityParam = currentLocation.city ? encodeURIComponent(currentLocation.city) : '';
+    } else {
+      setIsLoadMoreLoading(true);
+    }
+
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
+      const cityParam = currentLocation.city ? encodeURIComponent(currentLocation.city) : '';
+      
+      const postsRes = await fetch(`${API_BASE_URL}/api/v1/posts?country=${countryParam}&city=${cityParam}&page=${pageNum}&limit=${POSTS_PER_PAGE}`, { headers });
+      
+      if (postsRes.ok) {
+        const postsData = await postsRes.json();
+        const postsArray = postsData.posts || postsData;
         
-        // This endpoint returns ALL posts by default unless filtered
-        const postsRes = await fetch(`${API_BASE_URL}/api/v1/posts?country=${countryParam}&city=${cityParam}`, { headers });
-        
-        if (postsRes.ok) {
-          const postsData = await postsRes.json();
-          const postsArray = postsData.posts || postsData;
-          if (Array.isArray(postsArray)) {
-            const currentUserId = localStorage.getItem('userId');
-            
-            // Filter out shorts, map to UI, and remove 'urgent' specific posts from Home Feed
-            // to keep home clean, but allowing ALL other posts (undefined, null, 'home', 'all')
-            const feedPosts = postsArray
-                .filter((p: any) => !p.isShort && p.displayPage !== 'urgent') 
-                .map(mapApiPostToUI)
-                .filter((post: Post) => post.user._id !== currentUserId)
-                .sort((a: Post, b: Post) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
-                
-            setPosts(feedPosts);
+        if (Array.isArray(postsArray)) {
+          const currentUserId = localStorage.getItem('userId');
+          
+          const feedPosts = postsArray
+              .filter((p: any) => !p.isShort && p.displayPage !== 'urgent') 
+              .map(mapApiPostToUI)
+              .filter((post: Post) => post.user._id !== currentUserId)
+              .sort((a: Post, b: Post) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
+          
+          if (feedPosts.length < POSTS_PER_PAGE) {
+            setHasMore(false);
+          } else {
+            setHasMore(true);
           }
+
+          if (isRefresh) {
+            setPosts(feedPosts);
+          } else {
+            setPosts(prev => [...prev, ...feedPosts]);
+          }
+        } else {
+          setHasMore(false);
         }
-        
-        // Fetch suggested users (unchanged)
+      }
+      
+      // Fetch suggested users (only on initial refresh)
+      if (isRefresh) {
         const usersRes = await fetch(`${API_BASE_URL}/api/v1/users?limit=1000`, { headers });
         if(usersRes.ok) {
           const data = await usersRes.json();
@@ -588,11 +610,26 @@ const AppContent: React.FC = () => {
             setSuggestedCompanies(data.users.filter((u: any) => u.userType === 'company').map((u:any)=>({id:u._id, name:u.name, subtitle:u.email, avatar:u.avatar?(u.avatar.startsWith('http')?u.avatar:`${API_BASE_URL}${u.avatar}`):null})));
           }
         }
-      } catch (error) { console.error(error); }
-      finally { setIsLoading(false); }
-    };
-    fetchData();
-  }, [token, currentLocation]); // activeTab removed to prevent unnecessary re-fetches
+      }
+    } catch (error) { 
+      console.error(error); 
+    } finally { 
+      setIsLoading(false);
+      setIsLoadMoreLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    fetchFeedPosts(1, true);
+  }, [token, currentLocation]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchFeedPosts(nextPage, false);
+  };
 
   if (!token) return <LoginPage onLoginSuccess={setToken} />;
 
@@ -676,7 +713,36 @@ const AppContent: React.FC = () => {
                   <div className="flex flex-col gap-1 mt-2">
                     {posts.map(post => <PostCard key={post.id} post={post} onReport={handleReport} onProfileClick={handleOpenProfile} isActive={isHomeActive} />)}
                   </div>
-                  {posts.length > 0 ? <div className="p-4 text-center text-gray-400 text-sm"><p>{t('no_more_posts')}</p></div> : <div className="p-10 text-center text-gray-400 flex flex-col items-center"><p>{t('no_posts_home')}</p><button onClick={() => setIsCreateModalOpen(true)} className="mt-4 text-blue-600 font-bold text-sm">{t('be_first_post')}</button></div>}
+                  
+                  {/* LOAD MORE BUTTON */}
+                  {posts.length > 0 && hasMore && (
+                    <div className="px-3 py-4">
+                      <button 
+                        onClick={handleLoadMore}
+                        disabled={isLoadMoreLoading}
+                        className="w-full bg-white dark:bg-[#1e1e1e] p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center gap-2 group transition-all hover:bg-gray-50 dark:hover:bg-gray-900 active:scale-[0.98]"
+                      >
+                        {isLoadMoreLoading ? (
+                          <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={24} />
+                        ) : (
+                          <>
+                            <div className="flex flex-col items-center animate-bounce-slow text-blue-500 dark:text-blue-400">
+                                <ChevronsDown size={24} strokeWidth={2} />
+                            </div>
+                            <span className="font-bold text-blue-600 dark:text-blue-400 text-sm">{t('load_more')}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {posts.length > 0 && !hasMore && (
+                    <div className="p-4 text-center text-gray-400 text-sm"><p>{t('no_more_posts')}</p></div>
+                  )}
+                  
+                  {posts.length === 0 && (
+                    <div className="p-10 text-center text-gray-400 flex flex-col items-center"><p>{t('no_posts_home')}</p><button onClick={() => setIsCreateModalOpen(true)} className="mt-4 text-blue-600 font-bold text-sm">{t('be_first_post')}</button></div>
+                  )}
                 </>
               )}
             </div>
