@@ -30,7 +30,7 @@ import { API_BASE_URL } from './constants';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { ChevronsDown, Loader2 } from 'lucide-react';
+import { ChevronsDown, Loader2, WifiOff } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
@@ -56,11 +56,27 @@ const AppContent: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [isLocationDrawerOpen, setIsLocationDrawerOpen] = useState(false);
 
-  // Pagination State
+  // Pagination State - REDUCED TO 5 AS REQUESTED
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false);
-  const POSTS_PER_PAGE = 10;
+  const POSTS_PER_PAGE = 5; 
+
+  // Network Status State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const metaThemeColor = document.getElementById('theme-color-meta');
@@ -154,6 +170,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (!token) return;
     const fetchUnreadCount = async () => {
+      if (!navigator.onLine) return; // Skip if offline
       try {
         const response = await fetch(`${API_BASE_URL}/api/v1/notifications/unread-count`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -209,6 +226,7 @@ const AppContent: React.FC = () => {
     localStorage.removeItem('userEmail');
     localStorage.removeItem('username');
     localStorage.removeItem('user_cv_card'); 
+    localStorage.removeItem('cached_feed_posts'); // Clear cached posts on logout
     setIsSettingsOpen(false);
     setIsNotificationsOpen(false);
     setIsAIChatOpen(false); 
@@ -554,10 +572,29 @@ const AppContent: React.FC = () => {
 
   const handleOpenNotifications = () => { setIsNotificationsOpen(true); setUnreadNotificationsCount(0); };
 
-  // --- FIXED FETCHING LOGIC FOR HOME FEED WITH PAGINATION ---
+  // --- FETCHING LOGIC FOR HOME FEED WITH PAGINATION (FIXED) ---
   const fetchFeedPosts = async (pageNum: number, isRefresh: boolean = false) => {
     if (!token) return;
     
+    // 1. OFFLINE HANDLING: Load from Cache
+    if (!navigator.onLine) {
+        if (isRefresh) {
+            try {
+                const cachedData = localStorage.getItem('cached_feed_posts');
+                if (cachedData) {
+                    const parsedPosts = JSON.parse(cachedData);
+                    setPosts(parsedPosts);
+                }
+            } catch (e) {
+                console.error("Error reading cache", e);
+            }
+            setIsLoading(false);
+            setHasMore(false); // Can't load more while offline
+        }
+        return; 
+    }
+
+    // 2. ONLINE HANDLING
     if (isRefresh) {
       if (posts.length === 0) setIsLoading(true);
     } else {
@@ -569,6 +606,7 @@ const AppContent: React.FC = () => {
       const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
       const cityParam = currentLocation.city ? encodeURIComponent(currentLocation.city) : '';
       
+      // Fetch 5 posts (POSTS_PER_PAGE)
       const postsRes = await fetch(`${API_BASE_URL}/api/v1/posts?country=${countryParam}&city=${cityParam}&page=${pageNum}&limit=${POSTS_PER_PAGE}`, { headers });
       
       if (postsRes.ok) {
@@ -584,7 +622,8 @@ const AppContent: React.FC = () => {
               .filter((post: Post) => post.user._id !== currentUserId)
               .sort((a: Post, b: Post) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
           
-          if (feedPosts.length < POSTS_PER_PAGE) {
+          // Logic Fix: Check server array length, not filtered array length
+          if (postsArray.length < POSTS_PER_PAGE) {
             setHasMore(false);
           } else {
             setHasMore(true);
@@ -592,8 +631,15 @@ const AppContent: React.FC = () => {
 
           if (isRefresh) {
             setPosts(feedPosts);
+            // SAVE TO CACHE (Overwrite)
+            localStorage.setItem('cached_feed_posts', JSON.stringify(feedPosts));
           } else {
-            setPosts(prev => [...prev, ...feedPosts]);
+            setPosts(prev => {
+                const newPosts = [...prev, ...feedPosts];
+                // SAVE TO CACHE (Append)
+                localStorage.setItem('cached_feed_posts', JSON.stringify(newPosts));
+                return newPosts;
+            });
           }
         } else {
           setHasMore(false);
@@ -623,7 +669,7 @@ const AppContent: React.FC = () => {
     setPage(1);
     setHasMore(true);
     fetchFeedPosts(1, true);
-  }, [token, currentLocation]);
+  }, [token, currentLocation, isOnline]); // Refetch when coming online
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -714,29 +760,37 @@ const AppContent: React.FC = () => {
                     {posts.map(post => <PostCard key={post.id} post={post} onReport={handleReport} onProfileClick={handleOpenProfile} isActive={isHomeActive} />)}
                   </div>
                   
-                  {/* LOAD MORE BUTTON */}
-                  {posts.length > 0 && hasMore && (
-                    <div className="px-3 py-4">
-                      <button 
-                        onClick={handleLoadMore}
-                        disabled={isLoadMoreLoading}
-                        className="w-full bg-white dark:bg-[#1e1e1e] p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center gap-2 group transition-all hover:bg-gray-50 dark:hover:bg-gray-900 active:scale-[0.98]"
-                      >
-                        {isLoadMoreLoading ? (
-                          <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={24} />
-                        ) : (
-                          <>
-                            <div className="flex flex-col items-center animate-bounce-slow text-blue-500 dark:text-blue-400">
-                                <ChevronsDown size={24} strokeWidth={2} />
-                            </div>
-                            <span className="font-bold text-blue-600 dark:text-blue-400 text-sm">{t('load_more')}</span>
-                          </>
-                        )}
-                      </button>
+                  {/* LOAD MORE BUTTON - REDESIGNED: Short Height & Horizontal */}
+                  {/* HIDE IF OFFLINE */}
+                  {!isOnline ? (
+                    <div className="py-6 flex flex-col items-center justify-center text-gray-400 gap-2 mb-10">
+                        <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-full">
+                            <WifiOff size={24} />
+                        </div>
+                        <span className="text-xs font-bold">لا يوجد اتصال بالانترنت</span>
                     </div>
+                  ) : (
+                    posts.length > 0 && hasMore && (
+                      <div className="px-3 py-2">
+                        <button 
+                          onClick={handleLoadMore}
+                          disabled={isLoadMoreLoading}
+                          className="w-full bg-white dark:bg-[#1e1e1e] py-2.5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-center gap-2 group transition-all hover:bg-gray-50 dark:hover:bg-gray-900 active:scale-[0.98]"
+                        >
+                          {isLoadMoreLoading ? (
+                            <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={18} />
+                          ) : (
+                            <>
+                              <span className="font-bold text-blue-600 dark:text-blue-400 text-xs">{t('load_more')}</span>
+                              <ChevronsDown size={16} strokeWidth={2.5} className="text-blue-500 dark:text-blue-400 animate-bounce" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )
                   )}
 
-                  {posts.length > 0 && !hasMore && (
+                  {posts.length > 0 && !hasMore && isOnline && (
                     <div className="p-4 text-center text-gray-400 text-sm"><p>{t('no_more_posts')}</p></div>
                   )}
                   
