@@ -113,23 +113,43 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         const data = await response.json();
 
         if (response.ok) {
-            localStorage.setItem('token', data.token);
+            // 1. Save Token immediately
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+            }
+            
+            // 2. Save User Info
             const userObj = data.user || {};
             const userId = userObj._id || userObj.id;
             
             if (userId) {
                 localStorage.setItem('userId', userId);
-                localStorage.setItem('userName', userObj.name || regName);
+                // Fallback to regName if API doesn't return name
+                localStorage.setItem('userName', userObj.name || regName || 'مستخدم');
                 localStorage.setItem('userEmail', userObj.email || regEmail);
                 if (userObj.avatar) localStorage.setItem('userAvatar', userObj.avatar);
                 if (userObj.username) localStorage.setItem('username', userObj.username);
             }
-            onLoginSuccess(data.token);
+            
+            // 3. Stop Spinner explicitly
+            setIsVerifying(false);
+
+            // 4. Trigger Success with slight delay to ensure storage is ready and UI updates
+            setTimeout(() => {
+                if (data.token) {
+                    onLoginSuccess(data.token);
+                } else {
+                    // Fallback reload if token missing but success
+                    window.location.reload();
+                }
+            }, 500);
+
         } else {
             alert(data.message || t('verify_error'));
             setIsVerifying(false); 
         }
     } catch (e) {
+        console.error(e);
         alert(t('error_occurred'));
         setIsVerifying(false);
     }
@@ -577,7 +597,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         {isResetting ? (
                             <Loader2 size={18} className="animate-spin" />
                         ) : (
-                            // FIXED: Use style transform instead of className for rotate to ensure it applies
                             <Send 
                                 size={18} 
                                 style={{ transform: language === 'ar' ? 'scaleX(-1)' : 'none' }} 
