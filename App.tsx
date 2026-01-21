@@ -28,6 +28,8 @@ import SearchView from './components/SearchView';
 import { Post } from './types';
 import { API_BASE_URL } from './constants';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
@@ -74,52 +76,71 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // === FIREBASE NOTIFICATION INIT ===
+  // === NOTIFICATIONS INIT (WEB & NATIVE) ===
   useEffect(() => {
-    const initFirebaseNotifications = async () => {
-      if (!token || !messaging) return;
-      
-      try {
-        // 1. Request Permission
-        const permission = await Notification.requestPermission();
-        
-        if (permission === 'granted') {
-          // 2. Get Token
-          // NOTE: You need to generate a VAPID key in Firebase Console -> Cloud Messaging -> Web Config
-          // and put it in your .env file as VITE_FIREBASE_VAPID_KEY
-          const vapidKey = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
-          
-          if (getToken) {
-             const fcmToken = await getToken(messaging, { vapidKey });
-             if (fcmToken) {
-               console.log('✅ FCM Token:', fcmToken);
-               localStorage.setItem('fcmToken', fcmToken);
-               // Optional: Send to backend to update user profile
-             }
-          }
-
-          // 3. Listen for foreground messages
-          if (onMessage) {
-            onMessage(messaging, (payload: any) => {
-              console.log('Foreground Message:', payload);
-              if (payload.notification) {
-                // You can show a custom toast here
-                new Notification(payload.notification.title || 'إشعار جديد', {
-                  body: payload.notification.body,
-                  icon: '/logo.png'
+    const initNotifications = async () => {
+      // 1. WEB LOGIC
+      if (Capacitor.getPlatform() === 'web') {
+        if (!token || !messaging) return;
+        try {
+          if (typeof Notification !== 'undefined') {
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+              const vapidKey = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
+              if (getToken) {
+                 const fcmToken = await getToken(messaging, { vapidKey });
+                 if (fcmToken) {
+                   console.log('✅ FCM Token (Web):', fcmToken);
+                   localStorage.setItem('fcmToken', fcmToken);
+                 }
+              }
+              if (onMessage) {
+                onMessage(messaging, (payload: any) => {
+                  console.log('Foreground Message:', payload);
+                  if (payload.notification && typeof Notification !== 'undefined') {
+                    new Notification(payload.notification.title || 'إشعار جديد', {
+                      body: payload.notification.body,
+                      icon: '/logo.png'
+                    });
+                  }
                 });
               }
-            });
+            }
           }
+        } catch (error) {
+          console.error('Firebase Web Notification Error:', error);
         }
-      } catch (error) {
-        console.error('Firebase Notification Error:', error);
+      } 
+      // 2. NATIVE LOGIC (ANDROID/IOS)
+      else {
+        try {
+          const permStatus = await PushNotifications.requestPermissions();
+          if (permStatus.receive === 'granted') {
+            await PushNotifications.register();
+          }
+
+          await PushNotifications.removeAllListeners();
+
+          await PushNotifications.addListener('registration', token => {
+            console.log('✅ FCM Token (Native):', token.value);
+            localStorage.setItem('fcmToken', token.value);
+          });
+
+          await PushNotifications.addListener('registrationError', err => {
+            console.error('Push registration failed:', err);
+          });
+
+          await PushNotifications.addListener('pushNotificationReceived', notification => {
+            console.log('Push received:', notification);
+          });
+        } catch (error) {
+          console.error('Native Push Error:', error);
+        }
       }
     };
 
-    // Delay slightly to not block initial render
-    const timer = setTimeout(initFirebaseNotifications, 2000);
-    return () => clearTimeout(timer);
+    initNotifications();
   }, [token]);
   // ===================================
 

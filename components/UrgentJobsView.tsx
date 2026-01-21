@@ -9,6 +9,8 @@ import Logo from './Logo';
 import PostCard from './PostCard';
 import { Post } from '../types';
 import { getDisplayLocation } from '../data/locations';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 interface UrgentJobsViewProps {
   onFullScreenToggle: (isFull: boolean) => void;
@@ -142,8 +144,24 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
   };
 
   const handleSubscribe = async () => {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
+    let permissionGranted = false;
+    const isWeb = Capacitor.getPlatform() === 'web';
+
+    try {
+        if (isWeb) {
+            if (typeof Notification !== 'undefined') {
+                const p = await Notification.requestPermission();
+                permissionGranted = p === 'granted';
+            }
+        } else {
+            const p = await PushNotifications.requestPermissions();
+            permissionGranted = p.receive === 'granted';
+        }
+    } catch (e) {
+        console.error("Permission request failed", e);
+    }
+
+    if (!permissionGranted) {
       alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العاجلة');
       return;
     }

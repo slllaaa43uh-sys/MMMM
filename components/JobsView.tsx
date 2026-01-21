@@ -10,6 +10,8 @@ import { JOB_CATEGORIES } from '../data/categories';
 import { API_BASE_URL } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 interface JobsViewProps {
   onFullScreenToggle: (isFull: boolean) => void;
@@ -44,8 +46,24 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
   // وظيفة الاشتراك في إشعارات الوظائف (داخل القسم)
   const handleSubscribeJobs = async () => {
     // 1. التحقق من إذن النظام
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
+    let permissionGranted = false;
+    const isWeb = Capacitor.getPlatform() === 'web';
+
+    try {
+        if (isWeb) {
+            if (typeof Notification !== 'undefined') {
+                const p = await Notification.requestPermission();
+                permissionGranted = p === 'granted';
+            }
+        } else {
+            const p = await PushNotifications.requestPermissions();
+            permissionGranted = p.receive === 'granted';
+        }
+    } catch (e) {
+        console.error("Permission request failed", e);
+    }
+
+    if (!permissionGranted) {
       alert('⚠️ يرجى السماح بالإشعارات من إعدادات هاتفك لتتمكن من الاشتراك.');
       return;
     }

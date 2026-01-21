@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 interface ExternalJob {
   _id: string;
@@ -188,8 +190,24 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
   };
 
   const handleSubscribe = async () => {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
+    let permissionGranted = false;
+    const isWeb = Capacitor.getPlatform() === 'web';
+
+    try {
+        if (isWeb) {
+            if (typeof Notification !== 'undefined') {
+                const p = await Notification.requestPermission();
+                permissionGranted = p === 'granted';
+            }
+        } else {
+            const p = await PushNotifications.requestPermissions();
+            permissionGranted = p.receive === 'granted';
+        }
+    } catch (e) {
+        console.error("Permission request failed", e);
+    }
+
+    if (!permissionGranted) {
       alert('⚠️ يرجى السماح بالإشعارات من إعدادات المتصفح لتلقي تنبيهات الوظائف العالمية');
       return;
     }
