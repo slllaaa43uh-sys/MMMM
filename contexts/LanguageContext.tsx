@@ -71,6 +71,13 @@ const translations = {
     back: "عودة",
     privacy_error_msg: "الرجاء الموافقة على سياسة الخصوصية للمتابعة",
     
+    // Password Generation
+    create_pass_header: "إنشاء كلمة المرور",
+    suggest_pass_btn: "اقتراح كلمة سر قوية",
+    copy_pass_btn: "نسخ كلمة السر",
+    pass_copied_msg: "تم نسخ كلمة المرور",
+    pass_criteria_hint: "يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على رموز وأرقام.",
+
     // Verification
     verify_title: "أدخل رمز التحقق",
     verify_sent_desc: "تم إرسال رمز التحقق إلى بريدك الإلكتروني:",
@@ -581,6 +588,13 @@ const translations = {
     back: "Back",
     privacy_error_msg: "Please agree to the privacy policy to continue",
     
+    // Password Generation
+    create_pass_header: "Create Password",
+    suggest_pass_btn: "Suggest Strong Password",
+    copy_pass_btn: "Copy Password",
+    pass_copied_msg: "Password copied",
+    pass_criteria_hint: "Password must be at least 8 characters with symbols and numbers.",
+
     // Verification
     verify_title: "Enter Verification Code",
     verify_sent_desc: "Verification code sent to your email:",

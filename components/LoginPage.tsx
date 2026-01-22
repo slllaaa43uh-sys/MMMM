@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE_URL } from '../constants';
-import { Lock, Mail, ArrowLeft, X, User, Building2, ChevronRight, Check, ArrowRight as ArrowRightIcon, Globe, Loader2, ShieldCheck, MapPin, Phone, Send } from 'lucide-react';
+import { Lock, Mail, ArrowLeft, X, User, Building2, ChevronRight, Check, ArrowRight as ArrowRightIcon, Globe, Loader2, ShieldCheck, MapPin, Phone, Send, RefreshCw, Eye, EyeOff, Copy } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ARAB_LOCATIONS } from '../data/locations';
 import Logo from './Logo';
@@ -56,6 +56,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [regCountry, setRegCountry] = useState('');
   const [isDetectingCountry, setIsDetectingCountry] = useState(false);
   const [regPhone, setRegPhone] = useState('');
+  
+  // Password Visibility & Generation State
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
+  const [isGeneratedPassword, setIsGeneratedPassword] = useState(false);
   
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -262,6 +267,24 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setRegisterStep('form');
   };
 
+  // --- Strict Phone Input Handler ---
+  const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+      let val = e.target.value.replace(/\D/g, ''); // Only numbers allowed
+      
+      // If a country is selected (meaning we have a code prefix), prevent starting with '0'
+      // This solves the confusion of "05" vs "5"
+      if (regCountry && val.startsWith('0')) {
+          val = val.substring(1);
+      }
+      setRegPhone(val);
+  };
+
+  // --- Handle Password Input manually (Resets generation flag) ---
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setRegPass(e.target.value);
+      setIsGeneratedPassword(false);
+  };
+
   const handleRegisterSubmit = async () => {
     setRegisterError(null);
 
@@ -273,6 +296,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         setRegisterError("كلمات المرور غير متطابقة");
         return;
     }
+
+    // Strict Password Validation
+    if (regPass.length < 8) {
+        setRegisterError("كلمة المرور ضعيفة جداً. يجب أن تكون 8 أحرف أو أكثر.");
+        return;
+    }
+    const hasLetter = /[a-zA-Z\u0600-\u06FF]/.test(regPass); 
+    const hasNumber = /[0-9]/.test(regPass);
+    if (!hasLetter || !hasNumber) {
+         setRegisterError("لأمان حسابك، يجب أن تحتوي كلمة المرور على حروف وأرقام.");
+         return;
+    }
+
     if (!agreedToPolicy) {
         setRegisterError(t('privacy_error_msg'));
         return;
@@ -297,7 +333,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         }
 
         if (!isValidSaudi) {
-            setRegisterError("رقم الجوال غير صحيح. للسعودية يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.");
+            setRegisterError("رقم الجوال غير صحيح. للسعودية يجب أن يتكون من 9 أرقام (5xxxxxxxx).");
             return;
         }
     } else {
@@ -411,6 +447,27 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const generateStrongPassword = () => {
+      const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+      let password = "";
+      for (let i = 0; i < 12; i++) {
+          password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      setRegPass(password);
+      setRegConfirmPass(password);
+      setRegisterError(null);
+      
+      // Auto-show and set generated flag
+      setIsGeneratedPassword(true);
+      setShowRegPassword(true);
+      setShowRegConfirmPassword(true);
+  };
+
+  const copyGeneratedPassword = () => {
+      navigator.clipboard.writeText(regPass);
+      alert(t('pass_copied_msg'));
+  };
+
   const getPlaceholderName = () => {
       switch(registerType) {
           case 'company': return t('register_company_name_placeholder');
@@ -451,9 +508,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       </div>
 
       {/* --- Main Content Area --- */}
-      <div className="flex-1 flex flex-col px-8 pt-8 pb-safe overflow-y-auto">
+      <div className="flex-1 flex flex-col px-8 pt-12 pb-safe overflow-y-auto">
           
-          <div className="text-center mb-4">
+          <div className="text-center mb-3">
              <h1 className="text-2xl font-black text-gray-900 mb-0.5">{t('login_title')}</h1>
              <p className="text-gray-500 text-sm font-medium">{t('login_subtitle')}</p>
           </div>
@@ -609,37 +666,37 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
       )}
 
+      {/* FULL PAGE REGISTRATION */}
       {isRegisterOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-            <div 
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-                onClick={() => { setIsRegisterOpen(false); setRegisterError(null); }}
-            />
+        <div className="fixed inset-0 z-50 bg-white flex flex-col animate-in slide-in-from-bottom duration-300 overflow-y-auto">
             
-            <div className="bg-white w-full max-w-md rounded-t-[2rem] p-6 relative z-10 animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl">
-                
-                <div className="flex items-center justify-between mb-6 sticky top-0 bg-white z-20 pb-2 border-b border-gray-50">
-                    <h2 className="text-xl font-black text-gray-900">
-                        {registerStep === 'type' ? t('register_title') : t('register_subtitle')}
-                    </h2>
-                    <button onClick={() => { setIsRegisterOpen(false); setRegisterError(null); }} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">
-                        <X size={20} className="text-gray-500" />
-                    </button>
-                </div>
+            {/* Header */}
+            <div className="px-6 py-4 flex items-center justify-between border-b border-gray-100 sticky top-0 bg-white z-20">
+                <h2 className="text-2xl font-black text-gray-900">
+                    {registerStep === 'type' ? t('register_title') : t('register_subtitle')}
+                </h2>
+                <button 
+                    onClick={() => { setIsRegisterOpen(false); setRegisterError(null); }} 
+                    className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                    <X size={24} className="text-gray-600" />
+                </button>
+            </div>
 
+            <div className="p-6 max-w-md mx-auto w-full flex-1">
                 {registerStep === 'type' ? (
-                    <div className="space-y-4">
+                    <div className="space-y-6 pt-4">
                         <p className="text-sm text-gray-500 font-bold mb-4">{t('register_choose_type')}</p>
                         
                         <button 
                             onClick={() => handleRegisterTypeSelect('individual')}
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-all group"
+                            className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-gray-50 bg-white hover:bg-blue-50 hover:border-blue-200 transition-all group shadow-sm"
                         >
-                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform shadow-sm">
-                                <User size={24} />
+                            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform shadow-sm">
+                                <User size={28} />
                             </div>
                             <div className={`flex-1 ${language === 'ar' ? 'text-right' : 'text-left'}`}>
-                                <h3 className="font-bold text-gray-900 text-base">{t('register_individual_title')}</h3>
+                                <h3 className="font-bold text-gray-900 text-lg">{t('register_individual_title')}</h3>
                                 <p className="text-xs text-gray-500 mt-1 font-medium">{t('register_individual_desc')}</p>
                             </div>
                             <ChevronRight className={`text-gray-300 group-hover:text-blue-500 ${language === 'ar' ? 'rotate-180' : ''}`} />
@@ -647,45 +704,45 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
                         <button 
                             onClick={() => handleRegisterTypeSelect('company')}
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-purple-50 hover:border-purple-200 transition-all group"
+                            className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-gray-50 bg-white hover:bg-purple-50 hover:border-purple-200 transition-all group shadow-sm"
                         >
-                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform shadow-sm">
-                                <Building2 size={24} />
+                            <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform shadow-sm">
+                                <Building2 size={28} />
                             </div>
                             <div className={`flex-1 ${language === 'ar' ? 'text-right' : 'text-left'}`}>
-                                <h3 className="font-bold text-gray-900 text-base">{t('register_commercial_title')}</h3>
+                                <h3 className="font-bold text-gray-900 text-lg">{t('register_commercial_title')}</h3>
                                 <p className="text-xs text-gray-500 mt-1 font-medium">{t('register_commercial_desc')}</p>
                             </div>
                             <ChevronRight className={`text-gray-300 group-hover:text-purple-500 ${language === 'ar' ? 'rotate-180' : ''}`} />
                         </button>
                     </div>
                 ) : (
-                    <div className={`space-y-4 animate-in ${language === 'ar' ? 'slide-in-from-right' : 'slide-in-from-left'} duration-300`}>
+                    <div className={`space-y-3 animate-in ${language === 'ar' ? 'slide-in-from-right' : 'slide-in-from-left'} duration-300 pb-10`}>
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5 px-1">{getPlaceholderName()}</label>
+                            <label className="block text-xs font-bold text-gray-500 mb-1 px-1">{getPlaceholderName()}</label>
                             <input 
                                 type="text"
                                 value={regName}
                                 onChange={(e) => setRegName(e.target.value)}
-                                className={`w-full p-3.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                                className={`w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${language === 'ar' ? 'text-right' : 'text-left'}`}
                                 placeholder={getPlaceholderName()}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5 px-1">{t('email_label')}</label>
+                            <label className="block text-xs font-bold text-gray-500 mb-1 px-1">{t('email_label')}</label>
                             <input 
                                 type="email"
                                 value={regEmail}
                                 onChange={(e) => setRegEmail(e.target.value)}
-                                className={`w-full p-3.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm dir-ltr ${language === 'ar' ? 'text-right' : 'text-left'}`}
+                                className={`w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm dir-ltr ${language === 'ar' ? 'text-right' : 'text-left'}`}
                                 placeholder="example@mail.com"
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 px-1">{t('register_country_label')}</label>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 px-1">{t('register_country_label')}</label>
                                 <div className="relative">
                                     <div className={`absolute inset-y-0 ${language === 'ar' ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
                                         {isDetectingCountry ? (
@@ -697,7 +754,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                                     <select
                                         value={regCountry}
                                         onChange={(e) => setRegCountry(e.target.value)}
-                                        className={`w-full p-3.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm appearance-none ${language === 'ar' ? 'pr-10 text-right' : 'pl-10 text-left'}`}
+                                        className={`w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm appearance-none ${language === 'ar' ? 'pr-10 text-right' : 'pl-10 text-left'}`}
                                     >
                                         <option value="" disabled>{t('select_country')}</option>
                                         {ARAB_LOCATIONS.map((loc) => (
@@ -710,62 +767,110 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 px-1">{t('register_phone_label')}</label>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 px-1">{t('register_phone_label')}</label>
                                 <div className="relative dir-ltr">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 font-bold text-sm">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-600 font-bold text-sm border-r border-gray-200 pr-2">
                                         {selectedPhoneCode ? `+${selectedPhoneCode}` : <Phone size={16} className="text-gray-400" />}
                                     </div>
                                     <input 
                                         type="tel"
                                         value={regPhone}
-                                        onChange={(e) => setRegPhone(e.target.value)}
-                                        className={`w-full p-3.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${selectedPhoneCode ? 'pl-16' : 'pl-10 text-left'}`}
-                                        placeholder={selectedPhoneCode ? "5..." : "05..."}
+                                        onChange={handlePhoneInput}
+                                        className={`w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${selectedPhoneCode ? 'pl-[4.5rem]' : 'pl-12 text-left'}`}
+                                        placeholder="xxxxxxxxx"
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 px-1">{t('password_label')}</label>
-                                <input 
-                                    type="password"
-                                    value={regPass}
-                                    onChange={(e) => setRegPass(e.target.value)}
-                                    className={`w-full p-3.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                                    placeholder="••••••••"
-                                />
-                            </div>
+                        {/* Password Section Header & Generator */}
+                        <div className="mt-2 mb-1 px-1">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xs font-black text-gray-800">{t('create_pass_header')}</h3>
+                                
+                                <div className="flex flex-col items-end gap-1">
+                                    <button 
+                                        type="button"
+                                        onClick={generateStrongPassword}
+                                        className="text-[10px] font-bold text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors"
+                                    >
+                                        <RefreshCw size={12} />
+                                        {t('suggest_pass_btn')}
+                                    </button>
 
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 px-1">{t('confirm_password')}</label>
-                                <input 
-                                    type="password"
-                                    value={regConfirmPass}
-                                    onChange={(e) => setRegConfirmPass(e.target.value)}
-                                    className={`w-full p-3.5 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${language === 'ar' ? 'text-right' : 'text-left'}`}
-                                    placeholder="••••••••"
-                                />
+                                    {isGeneratedPassword && (
+                                        <button 
+                                            type="button"
+                                            onClick={copyGeneratedPassword}
+                                            className="text-[10px] font-bold text-green-600 flex items-center gap-1 hover:bg-green-50 px-2 py-1 rounded-lg transition-colors animate-in fade-in slide-in-from-top-1 duration-200"
+                                        >
+                                            <Copy size={12} />
+                                            {t('copy_pass_btn')}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 mt-4 px-2 py-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 px-1">{t('password_label')}</label>
+                                <div className="relative">
+                                    <input 
+                                        type={showRegPassword ? "text" : "password"}
+                                        value={regPass}
+                                        onChange={handlePasswordChange}
+                                        className={`w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${language === 'ar' ? 'text-right pl-10' : 'text-left pr-10'}`}
+                                        placeholder="••••••••"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowRegPassword(!showRegPassword)}
+                                        className={`absolute inset-y-0 ${language === 'ar' ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center text-gray-400 hover:text-gray-600`}
+                                    >
+                                        {showRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 px-1">{t('confirm_password')}</label>
+                                <div className="relative">
+                                    <input 
+                                        type={showRegConfirmPassword ? "text" : "password"}
+                                        value={regConfirmPass}
+                                        onChange={(e) => setRegConfirmPass(e.target.value)}
+                                        className={`w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:bg-white focus:outline-none transition-all font-bold text-sm ${language === 'ar' ? 'text-right pl-10' : 'text-left pr-10'}`}
+                                        placeholder="••••••••"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
+                                        className={`absolute inset-y-0 ${language === 'ar' ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center text-gray-400 hover:text-gray-600`}
+                                    >
+                                        {showRegConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 px-2 mt-0.5">{t('pass_criteria_hint')}</p>
+
+                        <div className="flex items-center gap-3 mt-4 px-4 py-3 bg-blue-50 rounded-xl border border-blue-100">
                             <div 
                                 onClick={() => {
                                     setAgreedToPolicy(!agreedToPolicy);
                                     if (!agreedToPolicy) setRegisterError(null);
                                 }}
-                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors flex-shrink-0 ${agreedToPolicy ? 'bg-blue-600 border-blue-600' : 'border-gray-400 bg-white'}`}
+                                className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-colors flex-shrink-0 ${agreedToPolicy ? 'bg-blue-600 border-blue-600' : 'border-gray-400 bg-white'}`}
                             >
-                                {agreedToPolicy && <Check size={14} className="text-white" strokeWidth={3} />}
+                                {agreedToPolicy && <Check size={16} className="text-white" strokeWidth={3} />}
                             </div>
-                            <span className="text-xs font-bold text-gray-700">
+                            <span className="text-xs font-bold text-gray-700 leading-relaxed">
                                 {t('i_agree_to')} 
                                 <button 
                                     type="button"
                                     onClick={() => setShowPrivacyPolicy(true)}
-                                    className="text-blue-600 underline mx-1 font-bold hover:text-blue-700"
+                                    className="text-blue-600 underline mx-1 font-extrabold hover:text-blue-700"
                                 >
                                     {t('privacy_policy_link')}
                                 </button>
@@ -778,13 +883,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                             </div>
                         )}
 
-                        <div className="pt-2 space-y-3">
+                        <div className="pt-2 space-y-2">
                             <button 
                                 onClick={handleRegisterSubmit}
                                 disabled={isRegistering}
-                                className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-cyan-500 to-green-500 hover:opacity-90 text-white rounded-xl font-bold text-base shadow-lg shadow-blue-200 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-cyan-500 to-green-500 hover:opacity-90 text-white rounded-xl font-bold text-lg shadow-xl shadow-blue-200 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {isRegistering && <Loader2 size={18} className="animate-spin" />}
+                                {isRegistering && <Loader2 size={20} className="animate-spin" />}
                                 {isRegistering ? t('registering') : t('register_button')}
                             </button>
                             
@@ -797,7 +902,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </div>
                     </div>
                 )}
-
             </div>
         </div>
       )}
