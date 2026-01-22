@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from
 import { createPortal } from 'react-dom';
 import { 
   ThumbsUp, MessageCircle, UserPlus, Video, 
-  ArrowRight, MoreHorizontal, Loader2, Bell, Check, Trash2, CheckCircle, Repeat
+  ArrowRight, MoreHorizontal, Loader2, Bell, Check, Trash2, CheckCircle, Repeat,
+  Zap, Globe
 } from 'lucide-react';
 import Avatar from './Avatar';
 import { API_BASE_URL } from '../constants';
@@ -40,6 +41,11 @@ interface APINotification {
   targetId?: string;
   postId?: string;
   shortId?: string;
+  // New fields
+  specialTag?: string;
+  postImage?: string;
+  displayPage?: string;
+  jobsCount?: number;
 }
 
 let globalNotificationsCache: APINotification[] = [];
@@ -313,6 +319,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
     const senderName = notif.sender.name || 'مستخدم';
     
     switch (notif.type) {
+        case 'urgent_job':
+            return notif.message || `${t('urgent_badge')}: ${senderName}`;
+        
+        case 'global_jobs':
+            return `${t('world_jobs_title')}: ${notif.jobsCount || 0} ${t('jobs_empty').replace('لا توجد ', '')}`;
+
         case 'like': 
         case 'post_like':
             return `${senderName} أعجب بمنشورك`;
@@ -368,7 +380,22 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
     let commentId = null;
     let replyId = null;
     
-    if (notif.post) {
+    if (notif.type === 'global_jobs') {
+        onNotificationClick({
+            category: 'global_jobs',
+            isRead: true
+        });
+        if (!notif.isRead) markAsRead(notif._id, false);
+        return;
+    }
+
+    if (notif.type === 'urgent_job') {
+        // Urgent job is essentially a post
+        if (notif.postId || notif.targetId) {
+            navTargetId = notif.postId || notif.targetId || '';
+            imagePreview = notif.postImage ? (notif.postImage.startsWith('http') ? notif.postImage : `${API_BASE_URL}${notif.postImage}`) : null;
+        }
+    } else if (notif.post) {
         navTargetId = typeof notif.post === 'object' ? (notif.post._id || (notif.post as any).id) : notif.post;
         if (typeof notif.post === 'object' && notif.post.image) {
              imagePreview = notif.post.image.startsWith('http') ? notif.post.image : `${API_BASE_URL}${notif.post.image}`;
@@ -454,6 +481,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
 
   const getIcon = (type: string) => {
     const t = type.toLowerCase();
+    if (t === 'urgent_job') return <Zap size={10} className="text-white fill-white" />;
+    if (t === 'global_jobs') return <Globe size={10} className="text-white" />;
     if (t.includes('like')) return <ThumbsUp size={10} className="text-white fill-white" />;
     if (t.includes('comment') || t.includes('reply')) return <MessageCircle size={10} className="text-white fill-white" />;
     if (t.includes('follow') || t.includes('user_follow')) return <UserPlus size={10} className="text-white fill-white" />;
@@ -464,6 +493,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
 
   const getBadgeColor = (type: string) => {
     const t = type.toLowerCase();
+    if (t === 'urgent_job') return 'bg-red-600';
+    if (t === 'global_jobs') return 'bg-green-600';
     if (t.includes('like')) return 'bg-blue-500';
     if (t.includes('comment') || t.includes('reply')) return 'bg-green-500';
     if (t.includes('follow') || t.includes('user_follow')) return 'bg-black';
@@ -547,9 +578,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
                    isVideo = true;
                } else if (notif.post && typeof notif.post === 'object' && notif.post.image) {
                    displayImage = notif.post.image.startsWith('http') ? notif.post.image : `${API_BASE_URL}${notif.post.image}`;
+               } else if (notif.postImage) {
+                   displayImage = notif.postImage.startsWith('http') ? notif.postImage : `${API_BASE_URL}${notif.postImage}`;
                }
 
                const isFollowType = notif.type.toLowerCase().includes('follow') || notif.type === 'new_follower';
+               const isUrgent = notif.type === 'urgent_job';
 
                return (
                 <div 
@@ -561,11 +595,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
                   <div className="flex items-start gap-3 flex-1 pl-2 min-w-0">
                     <div 
                         className="relative flex-shrink-0 cursor-pointer" 
-                        onClick={(e) => { e.stopPropagation(); onProfileClick?.(notif.sender._id); }}
+                        onClick={(e) => { e.stopPropagation(); if(notif.sender?._id) onProfileClick?.(notif.sender._id); }}
                     >
                       <Avatar
-                        name={notif.sender.name || 'User'}
-                        src={notif.sender.avatar ? (notif.sender.avatar.startsWith('http') ? notif.sender.avatar : `${API_BASE_URL}${notif.sender.avatar}`) : null}
+                        name={notif.sender?.name || 'System'}
+                        src={notif.sender?.avatar ? (notif.sender.avatar.startsWith('http') ? notif.sender.avatar : `${API_BASE_URL}${notif.sender.avatar}`) : null}
                         className="w-12 h-12 border border-gray-100"
                         textClassName="text-xl"
                       />
@@ -582,11 +616,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 self-center pl-2 flex-shrink-0">
+                  <div className="flex items-center gap-3 self-center pl-2 flex-shrink-0 relative">
                     {isFollowType ? (
                        <FollowBackButton userId={notif.sender._id} />
                     ) : displayImage ? (
                       <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0 relative bg-gray-100">
+                         {isUrgent && notif.specialTag && (
+                             <div className="absolute top-0 right-0 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded-bl-lg font-bold shadow-sm z-10 w-full text-center truncate">
+                                {notif.specialTag}
+                             </div>
+                         )}
                          <img src={displayImage} alt="Content" className="w-full h-full object-cover" />
                          {isVideo && (
                             <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
@@ -596,6 +635,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({ onClose, onNotifi
                             </div>
                          )}
                       </div>
+                    ) : isUrgent && notif.specialTag ? (
+                        <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-[10px] font-bold border border-red-200">
+                            {notif.specialTag}
+                        </span>
                     ) : null}
                     
                     {!notif.isRead && (

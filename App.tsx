@@ -119,6 +119,13 @@ const AppContent: React.FC = () => {
       const postId = data.postId || data.post_id;
       const videoId = data.videoId || data.video_id || data.shortId;
       const userId = data.userId || data.user_id;
+      
+      // Global Jobs Handling
+      if (data.category === 'global_jobs' || data.type === 'global_jobs') {
+          setActiveTab('world');
+          setIsNotificationsOpen(false);
+          return;
+      }
 
       if (postId) {
           // Open Post Detail
@@ -691,6 +698,18 @@ const AppContent: React.FC = () => {
     fetchFeedPosts(nextPage, false);
   };
 
+  // 3. Notification Handling Logic
+  const handleNotificationSelect = (notif: any) => {
+      // Specifically handle Global Jobs Navigation
+      if (notif.category === 'global_jobs') {
+          setActiveTab('world');
+          setIsNotificationsOpen(false);
+          return;
+      }
+      // Default handling
+      setSelectedNotification(notif);
+  };
+
   if (!token) return <LoginPage onLoginSuccess={setToken} />;
 
   const isAnyModalOpen = isCreateModalOpen || isCreateStoryOpen || reportData.isOpen || isLocationDrawerOpen || isCVWizardOpen || isAIChatOpen || isSearchOpen;
@@ -736,7 +755,9 @@ const AppContent: React.FC = () => {
       {viewingProfileId && <ProfileView userId={viewingProfileId === 'me' ? undefined : viewingProfileId} onClose={() => setViewingProfileId(null)} onReport={handleReport} onLogout={handleLogout} />}
       {isSettingsOpen && <SettingsView onClose={() => setIsSettingsOpen(false)} onProfileClick={() => handleOpenProfile('me')} onLogout={handleLogout} isDarkMode={isDarkMode} onToggleDarkMode={toggleDarkMode} />}
       {suggestedViewType && <SuggestedUsersView initialTab={suggestedViewType === 'company' ? 'companies' : 'individuals'} people={suggestedPeople} companies={suggestedCompanies} onBack={() => setSuggestedViewType(null)} isLoading={isLoading} onProfileClick={handleOpenProfile} />}
-      {isNotificationsOpen && <div className="absolute inset-0 z-50 bg-white"><NotificationsView onClose={() => setIsNotificationsOpen(false)} onNotificationClick={setSelectedNotification} onProfileClick={handleOpenProfile} /></div>}
+      
+      {/* Updated Notification View passing the new handler */}
+      {isNotificationsOpen && <div className="absolute inset-0 z-50 bg-white"><NotificationsView onClose={() => setIsNotificationsOpen(false)} onNotificationClick={handleNotificationSelect} onProfileClick={handleOpenProfile} /></div>}
       
       {selectedNotification && selectedNotification.category === 'post' && (
           <PostDetailView notification={selectedNotification} onBack={() => setSelectedNotification(null)} />

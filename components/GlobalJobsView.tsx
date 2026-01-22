@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell, BellOff } from 'lucide-react';
+import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell, BellOff, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
 // Updated Imports
@@ -68,8 +68,8 @@ const TARGET_LANGUAGES = [
   { code: "fa", label: "فارسی" }, 
 ];
 
-// --- 1. Isolated Component for Main Job Image (No Flicker) ---
-const JobCardImage = ({ src, alt }: { src: string | null, alt: string }) => {
+// --- 1. Isolated Component for Main Job Image (With Video Support) ---
+const JobCardImage = ({ src, alt, type }: { src: string | null, alt: string, type?: 'image' | 'video' }) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isError, setIsError] = useState(false);
 
@@ -78,6 +78,30 @@ const JobCardImage = ({ src, alt }: { src: string | null, alt: string }) => {
         return (
             <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                 <Briefcase className="text-gray-300 w-16 h-16 opacity-50" />
+            </div>
+        );
+    }
+
+    if (type === 'video') {
+        return (
+            <div className="absolute inset-0 w-full h-full bg-black overflow-hidden">
+                <video 
+                    src={src} 
+                    autoPlay 
+                    muted 
+                    loop 
+                    playsInline 
+                    className="w-full h-full object-cover opacity-90"
+                    onLoadedData={() => setIsLoaded(true)}
+                    onError={() => setIsError(true)}
+                />
+                {!isLoaded && !isError && (
+                    <div className="absolute inset-0 bg-gray-900 animate-pulse z-10 flex items-center justify-center">
+                        <ImageIcon className="text-gray-600 w-8 h-8 opacity-50" />
+                    </div>
+                )}
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none z-10" />
             </div>
         );
     }
@@ -153,6 +177,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   // Translation States Map: jobId -> State
   const [translationStates, setTranslationStates] = useState<Record<string, TranslationState>>({});
@@ -284,6 +309,32 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
 
       alert('❌ خطأ في الاتصال');
     }
+  };
+
+  const handleRefreshMedia = async (e: React.MouseEvent, jobId: string) => {
+      e.stopPropagation();
+      setRefreshingId(jobId);
+      const token = localStorage.getItem('token');
+      try {
+          const response = await fetch(`${API_BASE_URL}/api/v1/external-jobs/${jobId}/refresh-media`, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+              }
+          });
+          
+          if (response.ok) {
+              const data = await response.json();
+              if (data.media) {
+                  setJobs(prev => prev.map(j => (j._id === jobId || j.jobId === jobId) ? { ...j, media: data.media } : j));
+              }
+          }
+      } catch (error) {
+          console.error("Refresh failed", error);
+      } finally {
+          setRefreshingId(null);
+      }
   };
 
   const handleTranslate = async (jobId: string, title: string, location: string, description: string) => {
@@ -462,8 +513,18 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                        <JobCardImage 
                            src={job.media?.url} 
                            alt={job.title} 
+                           type={job.media?.type}
                        />
                        
+                       {/* Refresh Button */}
+                       <button 
+                           onClick={(e) => handleRefreshMedia(e, jobId)}
+                           className="absolute top-3 right-3 z-30 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full backdrop-blur-md transition-colors"
+                           title="Refresh Media"
+                       >
+                           <RefreshCw size={14} className={refreshingId === jobId ? "animate-spin" : ""} />
+                       </button>
+
                        {/* 2. Company Logo (Top Left) - High Z-Index to stay visible */}
                        <div className="absolute top-3 left-3 z-30">
                            <CompanyLogo 
