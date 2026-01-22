@@ -857,7 +857,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ onClose, onPost }) 
                {t('story_type_media')}
              </button>
          </div>
-         <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileChange} />
+         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
       </div>
     </div>
   );
