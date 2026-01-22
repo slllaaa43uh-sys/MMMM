@@ -95,7 +95,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
 
     if (!fcmToken || !authToken) {
       // Try registration again if token missing
-      if (authToken) registerForPushNotifications(authToken);
+      if (authToken) registerForPushNotifications();
       alert('⏳ جاري تهيئة التنبيهات... يرجى المحاولة بعد لحظات.');
       return;
     }

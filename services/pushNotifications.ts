@@ -1,9 +1,12 @@
 
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
-import { API_BASE_URL } from '../constants';
 
-const CHANNEL_ID = 'mehnati_pro_channel_v7'; // Updated Channel ID
+const CHANNEL_ID = 'mehnati_pro_channel_v7';
+
+export const isNativePlatform = (): boolean => {
+  return Capacitor.getPlatform() !== 'web';
+};
 
 export const createNotificationChannel = async () => {
   if (Capacitor.getPlatform() === 'android') {
@@ -16,7 +19,7 @@ export const createNotificationChannel = async () => {
         visibility: 1,
         lights: true,
         vibration: true,
-        sound: 'notify', // Custom sound
+        sound: 'notify',
       });
       console.log('✅ Notification channel created:', CHANNEL_ID);
     } catch (error) {
@@ -25,8 +28,14 @@ export const createNotificationChannel = async () => {
   }
 };
 
+export const checkPermissions = async (): Promise<boolean> => {
+  if (!isNativePlatform()) return false;
+  const status = await PushNotifications.checkPermissions();
+  return status.receive === 'granted';
+};
+
 export const requestPermissions = async (): Promise<boolean> => {
-  if (Capacitor.getPlatform() === 'web') {
+  if (!isNativePlatform()) {
     if (typeof Notification !== 'undefined') {
       const permission = await Notification.requestPermission();
       return permission === 'granted';
@@ -38,73 +47,50 @@ export const requestPermissions = async (): Promise<boolean> => {
   }
 };
 
-export const registerForPushNotifications = async (authToken: string) => {
-  if (Capacitor.getPlatform() === 'web') return;
+export const registerForPushNotifications = async (): Promise<string | null> => {
+  if (!isNativePlatform()) return null;
 
-  try {
-    const hasPermission = await requestPermissions();
-    if (hasPermission) {
-      await PushNotifications.register();
-      addListeners(authToken);
-    }
-  } catch (error) {
-    console.error('❌ Error registering for push notifications:', error);
-  }
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return null;
+
+  return new Promise((resolve) => {
+    // 1. Remove previous listeners to avoid duplicates during re-registration
+    PushNotifications.removeAllListeners();
+
+    // 2. Setup one-time listeners to capture the token
+    PushNotifications.addListener('registration', (token: Token) => {
+      console.log('✅ FCM Token generated:', token.value);
+      localStorage.setItem('fcmToken', token.value);
+      resolve(token.value);
+    });
+
+    PushNotifications.addListener('registrationError', (error: any) => {
+      console.error('❌ FCM Registration Error:', error);
+      resolve(null);
+    });
+
+    // 3. Trigger registration
+    PushNotifications.register();
+  });
 };
 
 export const getStoredToken = () => {
   return localStorage.getItem('fcmToken');
 };
 
-const addListeners = (authToken: string) => {
-  PushNotifications.removeAllListeners();
+export const addListeners = (
+  onReceived: (notification: PushNotificationSchema) => void,
+  onActionPerformed: (notification: ActionPerformed) => void
+) => {
+  if (!isNativePlatform()) return;
 
-  // Registration success
-  PushNotifications.addListener('registration', async (token: Token) => {
-    console.log('✅ FCM Token:', token.value);
-    localStorage.setItem('fcmToken', token.value);
-    
-    // Send token to server
-    try {
-      await fetch(`${API_BASE_URL}/api/v1/users/fcm-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ 
-          fcmToken: token.value,
-          platform: Capacitor.getPlatform() 
-        })
-      });
-      console.log('✅ FCM Token synced with server');
-    } catch (e) {
-      console.error('❌ Failed to sync FCM token:', e);
-    }
-  });
-
-  // Registration error
-  PushNotifications.addListener('registrationError', (error: any) => {
-    console.error('❌ FCM Registration Error:', error);
-  });
-
-  // Received notification (Foreground)
   PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
     console.log('🔔 Notification Received:', notification);
-    // You can dispatch a global event or show a toast here if needed
-    window.dispatchEvent(new CustomEvent('notification-received', { detail: notification }));
+    onReceived(notification);
   });
 
-  // Notification Action (Click)
   PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
     console.log('👉 Notification Action Performed:', notification);
-    const data = notification.notification.data;
-    handleNotificationClick(data);
+    onActionPerformed(notification);
   });
-};
-
-export const handleNotificationClick = (data: any) => {
-  console.log('Handling notification data:', data);
-  // Dispatch a custom event that App.tsx will listen to for navigation
-  window.dispatchEvent(new CustomEvent('notification-clicked', { detail: data }));
 };

@@ -33,7 +33,12 @@ import { Capacitor } from '@capacitor/core';
 import { ChevronsDown, Loader2, WifiOff } from 'lucide-react';
 
 // Import New Services
-import { createNotificationChannel, registerForPushNotifications } from './services/pushNotifications';
+import { 
+  createNotificationChannel, 
+  registerForPushNotifications, 
+  addListeners,
+  isNativePlatform 
+} from './services/pushNotifications';
 import { BadgeCounterService } from './services/badgeCounterService';
 
 // Expose handleNotification for Android Native
@@ -141,15 +146,10 @@ const AppContent: React.FC = () => {
 
   // 2. Initialize Push Logic
   useEffect(() => {
-    // A. Create Channel on Mount
+    // A. Create Channel on Mount (Android)
     createNotificationChannel();
 
-    // B. Register if logged in
-    if (token) {
-        registerForPushNotifications(token);
-    }
-
-    // C. Handle Service Worker Messages (Web Push Click)
+    // B. Handle Service Worker Messages (Web Push Click)
     const handleServiceWorkerMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
             handleDeepLink(event.data.data);
@@ -157,12 +157,12 @@ const AppContent: React.FC = () => {
     };
     navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
 
-    // D. Handle Android Native Deep Links (window.handleNotification)
+    // C. Handle Android Native Deep Links (window.handleNotification)
     window.handleNotification = (data: any) => {
         handleDeepLink(data);
     };
 
-    // E. Handle URL Params (Cold Start from Web Push)
+    // D. Handle URL Params (Cold Start from Web Push)
     const params = new URLSearchParams(window.location.search);
     const urlPostId = params.get('postId');
     const urlVideoId = params.get('videoId');
@@ -170,17 +170,59 @@ const AppContent: React.FC = () => {
     if (urlPostId) handleDeepLink({ postId: urlPostId });
     if (urlVideoId) handleDeepLink({ videoId: urlVideoId });
 
-    // F. Listen for Capacitor Notification Click Event (Dispatched from service)
-    const handleCapacitorClick = (e: CustomEvent) => {
-        handleDeepLink(e.detail);
-    };
-    window.addEventListener('notification-clicked', handleCapacitorClick as EventListener);
-
     return () => {
         navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
-        window.removeEventListener('notification-clicked', handleCapacitorClick as EventListener);
         delete (window as any).handleNotification;
     };
+  }, []);
+
+  // 3. Register Token & Listeners (When Token Available)
+  useEffect(() => {
+    if (!token) return;
+
+    const setupNotifications = async () => {
+      if (isNativePlatform()) {
+        try {
+          // 1. Register and get token
+          const fcmToken = await registerForPushNotifications();
+          
+          // 2. Send token to server
+          if (fcmToken) {
+            await fetch(`${API_BASE_URL}/api/v1/users/fcm-token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ 
+                fcmToken: fcmToken,
+                platform: Capacitor.getPlatform() 
+              })
+            });
+            console.log('✅ FCM Token synced with server');
+          }
+
+          // 3. Add Listeners
+          addListeners(
+            (notification) => {
+              // On Received (Foreground)
+              const badgeCount = notification.data?.badge || 1;
+              BadgeCounterService.setBadge(badgeCount);
+              // Optionally show a local toast here
+            },
+            (action) => {
+              // On Click
+              handleDeepLink(action.notification.data);
+            }
+          );
+
+        } catch (error) {
+          console.error('Failed to setup native notifications:', error);
+        }
+      }
+    };
+
+    setupNotifications();
   }, [token]);
 
   // ===================================

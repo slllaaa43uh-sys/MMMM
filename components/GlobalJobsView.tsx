@@ -257,7 +257,7 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
     const authToken = localStorage.getItem('token');
 
     if (!fcmToken || !authToken) {
-      if (authToken) registerForPushNotifications(authToken);
+      if (authToken) registerForPushNotifications();
       alert('⏳ جاري تهيئة نظام الإشعارات، يرجى المحاولة بعد قليل');
       return;
     }

@@ -88,7 +88,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     const authToken = localStorage.getItem('token');
 
     if (!fcmToken || !authToken) {
-      if (authToken) registerForPushNotifications(authToken);
+      if (authToken) registerForPushNotifications();
       alert('⏳ جاري تهيئة التنبيهات... يرجى المحاولة بعد لحظات.');
       return;
     }

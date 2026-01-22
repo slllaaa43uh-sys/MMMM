@@ -156,7 +156,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
     const authToken = localStorage.getItem('token');
 
     if (!fcmToken || !authToken) {
-      if (authToken) registerForPushNotifications(authToken);
+      if (authToken) registerForPushNotifications();
       alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
       return;
     }
