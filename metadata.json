@@ -1,6 +1,6 @@
 {
-  "name": "Copy of Copy of Copy of w",
-  "description": "A modern, Arabic-first social media interface featuring a feed, marketplace, jobs, and shorts navigation.",
+  "name": "com.mehnati.me",
+  "description": "منصة تواصل اجتماعي مهنية ووظائف وحراج",
   "requestFramePermissions": [
     "camera",
     "microphone",
