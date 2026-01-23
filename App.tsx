@@ -30,6 +30,7 @@ import { Post } from './types';
 import { API_BASE_URL } from './constants';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { ChevronsDown, Loader2, WifiOff } from 'lucide-react';
 
 // Import New Services
@@ -147,7 +148,17 @@ const AppContent: React.FC = () => {
   // 2. Initialize Push Logic
   useEffect(() => {
     // A. Create Channel on Mount (Android)
-    createNotificationChannel();
+    const initChannels = async () => {
+        if (Capacitor.getPlatform() === 'android') {
+            try {
+                await PushNotifications.deleteChannel({ id: 'mehnati_pro_channel_v7' });
+            } catch (e) {
+                // Ignore if channel doesn't exist
+            }
+        }
+        createNotificationChannel();
+    };
+    initChannels();
 
     // B. Handle Service Worker Messages (Web Push Click)
     const handleServiceWorkerMessage = (event: MessageEvent) => {
