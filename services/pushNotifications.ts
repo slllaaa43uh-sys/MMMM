@@ -2,15 +2,29 @@
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
 
-const CHANNEL_ID = 'mehnati_pro_channel_v7';
+const CHANNEL_ID = 'mehnati_notifications';
 
 export const isNativePlatform = (): boolean => {
   return Capacitor.getPlatform() !== 'web';
 };
 
+const deleteOldChannel = async () => {
+  if (Capacitor.getPlatform() === 'android') {
+    try {
+      await PushNotifications.deleteChannel({ id: 'mehnati_pro_channel_v7' });
+      console.log('🗑️ Old notification channel deleted');
+    } catch (e) {
+      // Ignore if channel doesn't exist
+    }
+  }
+};
+
 export const createNotificationChannel = async () => {
   if (Capacitor.getPlatform() === 'android') {
     try {
+      // Delete old channel to ensure clean slate
+      await deleteOldChannel();
+
       await PushNotifications.createChannel({
         id: CHANNEL_ID,
         name: 'Mehnati Notifications',
