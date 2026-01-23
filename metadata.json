@@ -1,5 +1,6 @@
 {
   "name": "com.mehnati.me",
+  "version": "1.0.4",
   "description": "منصة تواصل اجتماعي مهنية ووظائف وحراج",
   "requestFramePermissions": [
     "camera",

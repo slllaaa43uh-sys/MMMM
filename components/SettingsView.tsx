@@ -204,7 +204,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
                 
                 <div>
                     <h2 className="text-2xl font-black text-gray-900 mb-1">{t('app_name')}</h2>
-                    <p className="text-green-600 font-bold text-sm bg-green-50 px-3 py-1 rounded-full inline-block">v1.0.3 (Server Optimized)</p>
+                    <p className="text-green-600 font-bold text-sm bg-green-50 px-3 py-1 rounded-full inline-block">v1.0.4 (Server Optimized)</p>
                 </div>
 
                 <div className="text-sm text-gray-600 leading-loose max-w-xs mx-auto font-medium bg-gray-50 p-4 rounded-2xl">
@@ -447,7 +447,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
 
       {/* Footer Info */}
       <div className="text-center py-6 text-gray-300 text-[10px]">
-        <p>v1.0.3 (Server Optimized)</p>
+        <p>v1.0.4 (Server Optimized)</p>
         <p>{t('app_name')} Inc.</p>
       </div>
 
