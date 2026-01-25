@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 
 type Language = 'ar' | 'en';
 type Direction = 'rtl' | 'ltr';
@@ -339,6 +339,27 @@ const translations = {
     cv_year: "السنة",
     cv_age: "العمر",
     cv_year_unit: "سنة",
+    cv_btn_export: "تصدير",
+    cv_photo_upload_text: "صورة شخصية",
+    
+    // CV Card Visuals
+    cv_card_header: "بطاقة مهنية",
+    cv_label_age_birth: "العمر / الميلاد",
+    cv_label_residence: "الإقامة",
+    cv_label_employed_badge: "موظف",
+    cv_disclaimer_title: "تنويه هام",
+    cv_disclaimer_msg: "هذه البطاقة وثيقة تعريفية داخلية تثبت حالتك المهنية (موظف) داخل منصة مهنتي لي فقط.\nلا علاقة لهذه البطاقة بأي جهة حكومية رسمية ولا تعتبر وثيقة إثبات هوية رسمية.",
+    cv_preview_header: "معاينة البطاقة",
+    cv_hint_flip: "اضغط للقلب",
+    cv_btn_print: "طباعة البطاقة / PDF",
+    cv_btn_delete: "حذف البطاقة",
+    cv_confirm_delete: "هل أنت متأكد من حذف بطاقتك؟",
+    cv_label_id_num: "رقم الهوية المهنية",
+    cv_footer_text: "تم إصدار هذه البطاقة من منصة مهنتي لي. تعتبر وثيقة إثبات للحالة المهنية لحاملها.",
+    
+    // CV Maintenance
+    cv_btn_maintenance: "الخدمة معطلة حالياً",
+    cv_msg_maintenance: "يعمل الفريق حالياً على إصلاح وتطوير خدمة استخراج البطاقة. ستعود للعمل قريباً بتصميم جديد.",
     
     // Security Warnings (Updated)
     warning_intro: "سلامتك وأمانك هما أولويتنا. يرجى اتباع الإرشادات التالية لحماية نفسك:",
@@ -529,7 +550,10 @@ const translations = {
     // Custom Job Translations
     "سائق خاص": "سائق",
     "وظائف أخرى": "وظائف أخرى",
-    "أدوات أخرى": "أدوات أخرى"
+    "أدوات أخرى": "أدوات أخرى",
+    "مطلوب الآن": "مطلوب الآن",
+    "عقود مؤقتة": "عقود مؤقتة",
+    "دفع يومي": "دفع يومي"
   },
   en: {
     // App
@@ -856,6 +880,27 @@ const translations = {
     cv_year: "Year",
     cv_age: "Age",
     cv_year_unit: "Years",
+    cv_btn_export: "Export",
+    cv_photo_upload_text: "Profile Photo",
+    
+    // CV Card Visuals
+    cv_card_header: "Professional Card",
+    cv_label_age_birth: "Age / Birth",
+    cv_label_residence: "Residence",
+    cv_label_employed_badge: "Employed",
+    cv_disclaimer_title: "Important Disclaimer",
+    cv_disclaimer_msg: "This card is an internal identification document proving your professional status (Employed) within the Mehnati Li platform only.\nThis card has no affiliation with any official government entity and is not considered an official identity document.",
+    cv_preview_header: "Card Preview",
+    cv_hint_flip: "Tap to flip",
+    cv_btn_print: "Print Card / PDF",
+    cv_btn_delete: "Delete Card",
+    cv_confirm_delete: "Are you sure you want to delete your card?",
+    cv_label_id_num: "Professional ID Number",
+    cv_footer_text: "Issued by Mehnati Li platform. Considered a proof of professional status for the holder.",
+    
+    // CV Maintenance
+    cv_btn_maintenance: "Service Currently Disabled",
+    cv_msg_maintenance: "The team is currently working on fixing and developing the card extraction service. It will be back soon with a new design.",
     
     // Security Warnings (Updated)
     warning_intro: "Your safety and security are our top priority. Please follow these guidelines to protect yourself:",
@@ -1089,7 +1134,12 @@ const translations = {
     "توصيل": "Delivery",
     "حلاق / خياط": "Barber / Tailor",
     "مزارع": "Farmer",
-    "وظائف أخرى": "Other Jobs"
+    "وظائف أخرى": "Other Jobs",
+
+    // Urgent Tags Mapping (ADDED)
+    "مطلوب الآن": "Needed Now",
+    "عقود مؤقتة": "Temp Contracts",
+    "دفع يومي": "Daily Payment"
   }
 };
 
@@ -1114,10 +1164,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       return 'en';
   });
 
-  const t = (key: string): string => {
+  const t = useCallback((key: string): string => {
     // @ts-ignore
     return translations[language][key] || key;
-  };
+  }, [language]);
 
   const dir: Direction = language === 'ar' ? 'rtl' : 'ltr';
 

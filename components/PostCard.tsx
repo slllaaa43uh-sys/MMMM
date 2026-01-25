@@ -7,7 +7,7 @@ import {
   MessageCircle, Share2, MoreHorizontal, ThumbsUp, 
   X, EyeOff, Link, Flag, Send, Trash2, Copy, Repeat, 
   Bookmark, Phone, Mail, Loader2, ArrowRight, CornerDownLeft, Heart, ChevronDown, Star, Tag, Minus, Play,
-  CheckCircle, Clock, Briefcase, Volume2, VolumeX, Languages, Settings, Check, Image as ImageIcon, AlertCircle, WifiOff
+  CheckCircle, Clock, Briefcase, Volume2, VolumeX, Languages, Settings, Check, Image as ImageIcon, AlertCircle, WifiOff, Search, Zap
 } from 'lucide-react';
 import Avatar from './Avatar';
 import MediaGrid from './MediaGrid';
@@ -87,6 +87,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslationSheetOpen, setIsTranslationSheetOpen] = useState(false);
+  const [langSearch, setLangSearch] = useState('');
 
   const [isRepostModalOpen, setIsRepostModalOpen] = useState(false);
   const [repostText, setRepostText] = useState('');
@@ -98,7 +99,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [replyingTo, setReplyingTo] = useState<Comment | null>(null); 
+  
+  // Replying Logic
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null); // Actual Parent Comment (for API ID)
+  const [replyingToUser, setReplyingToUser] = useState<{ name: string } | null>(null); // User being replied to (for Tagging)
   
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
 
@@ -117,7 +121,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
 
   // --- Dynamic Time & Location Calculation ---
   const getDynamicTime = () => {
-      if (!post.createdAt) return post.timeAgo; // Fallback to static string
+      if (!post.createdAt) return post.timeAgo; 
       
       const date = new Date(post.createdAt);
       const now = new Date();
@@ -142,12 +146,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   };
 
   const getDynamicLocation = () => {
-      // If it's explicitly "General" or "عام" in backend, translate based on UI language
       if (post.location === 'عام' || post.location === 'General') {
           return t('location_general');
       }
-      
-      // If we have raw country/city data, translate dynamically
       if (post.country) {
           const loc = getDisplayLocation(post.country, post.city || null, language);
           if (loc.cityDisplay) {
@@ -155,15 +156,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
           }
           return loc.countryDisplay;
       }
-
-      // Fallback to static string
       return post.location || t('location_general');
   };
 
   const displayTime = getDynamicTime();
   const displayLocation = getDynamicLocation();
 
-  // --- TIME HELPER FOR COMMENTS (Matches App.tsx logic) ---
   const getCommentRelativeTime = (dateStr: string) => {
       if (!dateStr) return 'الآن';
       const date = new Date(dateStr);
@@ -171,19 +169,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
       const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
       if (seconds < 60) return 'الآن';
-      
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return `${minutes} د`;
-      
       const hours = Math.floor(minutes / 60);
       if (hours < 24) return `${hours} س`;
-      
       const days = Math.floor(hours / 24);
       if (days < 30) return `${days} يوم`;
-      
       const months = Math.floor(days / 30);
       if (months < 12) return `${months} شهر`;
-      
       const years = Math.floor(months / 12);
       return `${years} سنة`;
   };
@@ -200,7 +193,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     setIsVideoReady(false);
     setVideoError(false);
     setIsPlaying(false);
-    setIsImageLoaded(false); // Reset load state on prop change
+    setIsImageLoaded(false); 
   }, [post.id, post.image]);
 
   useEffect(() => {
@@ -344,6 +337,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
        fetchComments(needsLoader);
     } else {
       setReplyingTo(null);
+      setReplyingToUser(null);
       setCommentText('');
     }
   }, [isCommentsOpen, fetchComments]); 
@@ -362,7 +356,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const handleSendComment = async () => {
     if (!commentText.trim()) return;
     const token = localStorage.getItem('token');
-    const textToSend = commentText;
+    
+    // Prefix text with mention based on replyingToUser (Visual) or replyingTo (Logic Parent)
+    const mentionName = replyingToUser?.name || replyingTo?.user.name;
+    const textToSend = replyingTo && mentionName
+        ? `@${mentionName} ${commentText}`
+        : commentText;
+
     const tempId = `temp-${Date.now()}`;
     
     const optimisticComment: Comment = {
@@ -396,6 +396,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     setCommentText('');
     const wasReplyingTo = replyingTo; 
     setReplyingTo(null); 
+    setReplyingToUser(null);
     
     try {
       let url = `${API_BASE_URL}/api/v1/posts/${post.id}/comments`;
@@ -425,23 +426,33 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   };
 
   const handleCommentLike = async (commentId: string, replyId?: string) => {
-    const updateLikeInList = (list: Comment[]): Comment[] => {
-        return list.map(c => {
-            const isTarget = replyId ? c._id === replyId : c._id === commentId;
-            if (isTarget) {
-                return { ...c, isLiked: !c.isLiked, likes: c.isLiked ? Math.max(0, c.likes - 1) : c.likes + 1 };
-            }
-            if (c.replies && c.replies.length > 0) {
-                return { ...c, replies: updateLikeInList(c.replies) };
-            }
-            return c;
-        });
-    };
-    setComments(prev => updateLikeInList(prev));
+    // Correctly update local state
+    setComments(prev => prev.map(c => {
+        // If updating a reply inside this comment (replyId passed is the Parent ID)
+        if (replyId && c._id === replyId) {
+             return {
+                 ...c,
+                 replies: c.replies?.map(r => {
+                     if (r._id === commentId) {
+                         const newLiked = !r.isLiked;
+                         return { ...r, isLiked: newLiked, likes: newLiked ? r.likes + 1 : Math.max(0, r.likes - 1) };
+                     }
+                     return r;
+                 })
+             };
+        }
+        // If updating this comment itself
+        if (!replyId && c._id === commentId) {
+             const newLiked = !c.isLiked;
+             return { ...c, isLiked: newLiked, likes: newLiked ? c.likes + 1 : Math.max(0, c.likes - 1) };
+        }
+        return c;
+    }));
+
     try {
       const token = localStorage.getItem('token');
       let targetUrl = '';
-      if (replyId) targetUrl = `${API_BASE_URL}/api/v1/posts/${post.id}/comments/${commentId}/replies/${replyId}/like`;
+      if (replyId) targetUrl = `${API_BASE_URL}/api/v1/posts/${post.id}/comments/${replyId}/replies/${commentId}/like`;
       else targetUrl = `${API_BASE_URL}/api/v1/posts/${post.id}/comments/${commentId}/like`;
       await fetch(targetUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
     } catch (error) { fetchComments(); }
@@ -517,12 +528,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
             await navigator.share({ 
                 title: `منشور بواسطة ${post.user.name}`, 
                 text: post.content.substring(0, 100), 
-                url: `${API_BASE_URL}/share/post/${post.id}` // Updated to backend sharing route
+                url: `${API_BASE_URL}/share/post/${post.id}` 
             }); 
             setIsShareOpen(false); 
         } catch (err) {}
     } else { 
-        navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`); // Fallback for copy
+        navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`); 
         alert(t('copy_link') + " (تم النسخ)"); 
     }
   };
@@ -531,8 +542,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const handleRepostSubmit = async () => {
       setIsReposting(true);
       const token = localStorage.getItem('token');
-      // Fix: repost logic. If originalPost exists, we repost the originalPost id.
-      // Otherwise we repost this post.id
       const targetPostId = post.originalPost ? (post.originalPost.id || post.originalPost._id) : (post.id || post._id);
       
       try {
@@ -554,20 +563,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
       } catch (error) { alert("Failed"); } finally { setIsTranslating(false); }
   };
 
-  const renderPostContent = (p: Post) => (
+  const renderPostContent = (p: Post, isPreview = false) => (
       <>
         {p.content && (
             <div className="px-4 mb-2">
                 <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap dir-auto text-start">
-                    {isTranslated && translatedText ? translatedText : p.content}
+                    {!isPreview && isTranslated && translatedText ? translatedText : p.content}
                 </p>
-                <div className="flex items-center justify-between mt-2">
-                    <button onClick={handleTranslate} disabled={isTranslating} className="text-blue-600 text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-50">
-                        {isTranslating ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
-                        {isTranslating ? t('translating') : (isTranslated ? t('show_original') : t('translate_post'))}
-                    </button>
-                    <button onClick={() => setIsTranslationSheetOpen(true)} className="text-gray-400 p-1 hover:bg-gray-100 rounded-full"><Settings size={12} /></button>
-                </div>
+                {!isPreview && (
+                    <div className="flex items-center justify-between mt-2">
+                        <button onClick={handleTranslate} disabled={isTranslating} className="text-blue-600 text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-50">
+                            {isTranslating ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
+                            {isTranslating ? t('translating') : (isTranslated ? t('show_original') : t('translate_post'))}
+                        </button>
+                        <button onClick={() => setIsTranslationSheetOpen(true)} className="text-gray-400 p-1 hover:bg-gray-100 rounded-full"><Settings size={12} /></button>
+                    </div>
+                )}
             </div>
         )}
 
@@ -608,22 +619,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
 
                 return (
                   <div className={containerClass}>
-                    {/* Placeholder while loading */}
                     {!isImageLoaded && !imageError && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
                             <ImageIcon className="text-gray-300 animate-pulse" size={40} />
                         </div>
                     )}
-                    
-                    {/* Error State: Show Clean Placeholder (Offline/Broken) */}
                     {imageError && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 text-gray-400 z-20">
                             <WifiOff size={32} className="opacity-50 mb-2" />
                             <span className="text-[10px] font-medium opacity-60">الصورة غير متاحة</span>
                         </div>
                     )}
-
-                    {/* Actual Image - Hidden until loaded */}
                     <img 
                         src={p.image} 
                         alt="Post content" 
@@ -649,6 +655,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
           </div>
           {renderPostContent(original)}
       </div>
+  );
+
+  const filteredLanguages = TARGET_LANGUAGES.filter(lang => 
+    lang.label.toLowerCase().includes(langSearch.toLowerCase()) ||
+    lang.code.toLowerCase().includes(langSearch.toLowerCase())
   );
 
   if (!isVisible) return null;
@@ -687,22 +698,19 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
       activeCommentAction.user._id === 'me'
   );
 
-  // The post content to be shown in the repost modal
   const contentToRepost = post.originalPost || post;
-
-  // STRICT CHECK: Only show contact options if contact data is actually present
   const hasContactInfo = (post.contactPhone && post.contactPhone.trim().length > 0) || 
                          (post.contactEmail && post.contactEmail.trim().length > 0);
 
   return (
     <div className="mb-3">
       <div className="bg-white shadow-sm py-4 relative">
+        {/* Post Header */}
         <div className="px-4 flex justify-between items-start mb-3">
           <div className="flex items-center gap-3">
             <div className="relative cursor-pointer" onClick={handleAvatarClick}><Avatar name={post.user.name} src={post.user.avatar} className="w-10 h-10" /></div>
             <div>
               <div className="flex items-center gap-2"><h3 className="font-bold text-gray-900 text-sm cursor-pointer" onClick={handleAvatarClick}>{post.user.name}</h3>{post.originalPost && <span className="text-gray-400 text-xs flex items-center gap-1"><Repeat size={12} />{t('repost')}</span>}</div>
-              {/* Dynamic Time and Location */}
               <div className="flex flex-col gap-0.5"><div className="flex items-center gap-1"><span className="text-xs text-gray-500">{displayTime}</span><span className="text-gray-300 text-[10px]">•</span><span className="text-xs text-gray-400">{displayLocation}</span></div></div>
             </div>
           </div>
@@ -712,9 +720,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
           </div>
         </div>
 
-        {(post.title || post.category || post.isFeatured) && (
+        {/* Badges/Tags (Updated with Urgent Tag) */}
+        {(post.title || post.category || post.isFeatured || post.specialTag) && (
           <div className="px-4 mb-2 flex flex-wrap items-center gap-2">
             {post.isFeatured && <span className="relative bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-amber-200 overflow-hidden"><span className="absolute inset-0 bg-white/40 animate-pulse"></span><span className="relative flex items-center gap-1"><Star size={10} className="fill-amber-700" /> {t('post_premium')}</span></span>}
+            {post.specialTag && <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-red-200"><Zap size={10} className="fill-red-700" /> {t(post.specialTag)}</span>}
             {post.title && <h4 className="font-bold text-sm text-blue-600 leading-tight">{t(post.title)}</h4>}
             {post.category && <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-medium border border-gray-200 flex items-center gap-1"><Tag size={10} className="text-gray-400" />{t(post.category)}</span>}
           </div>
@@ -725,6 +735,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
 
         {post.originalPost ? <>{<div className="px-4 mb-2"><p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap dir-auto text-start">{post.content}</p></div>}{renderSharedPost(post.originalPost)}</> : renderPostContent(post)}
 
+        {/* Stats Footer */}
         <div className="px-4 flex justify-between items-center pb-2 border-b border-gray-100 text-xs text-gray-500 mb-2">
           <div className="flex items-center gap-1"><div className={`p-0.5 rounded-full transition-all duration-300 ${optimisticLiked ? 'bg-blue-500 scale-110' : 'bg-gray-400'}`}><ThumbsUp size={10} className="text-white fill-current" /></div><span key={likesCount} className="animate-in fade-in zoom-in duration-200 font-bold text-gray-600">{likesCount}</span></div>
           <div className="flex gap-3"><button onClick={handleOpenComments} className="hover:underline">{commentsCount} {t('comment')}</button><span>{post.repostsCount || 0} {t('share')}</span></div>
@@ -737,10 +748,69 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
         </div>
       </div>
 
+      {/* --- LANGUAGE SELECTION SHEET --- */}
+      {isTranslationSheetOpen && createPortal(
+        <div className="fixed inset-0 z-[10002] flex items-end justify-center">
+            <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsTranslationSheetOpen(false)} />
+            <div className="bg-white w-full max-w-md h-[80vh] rounded-t-2xl relative z-10 animate-in slide-in-from-bottom duration-300 flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-800">{t('translation_settings')}</h3>
+                    <button type="button" onClick={() => setIsTranslationSheetOpen(false)} className="bg-gray-100 p-1 rounded-full"><X size={20} /></button>
+                </div>
+                
+                <div className="p-4 border-b border-gray-50">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                            type="text"
+                            placeholder={language === 'ar' ? 'بحث عن لغة...' : 'Search language...'}
+                            value={langSearch}
+                            onChange={(e) => setLangSearch(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4">
+                    <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
+                        <span className="text-xs text-gray-500 font-bold mb-2 block">{t('source_lang')}</span>
+                        <div className="flex items-center justify-between"><span className="font-bold text-gray-800">Auto Detect</span><Check size={18} className="text-gray-400" /></div>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 overflow-hidden">
+                        <div className="bg-gray-50 p-3 border-b border-gray-100"><span className="text-xs text-gray-500 font-bold">{t('target_lang')}</span></div>
+                        <div className="max-h-[400px] overflow-y-auto">
+                            {filteredLanguages.length > 0 ? (
+                                filteredLanguages.map((lang) => (
+                                    <button 
+                                        type="button"
+                                        key={lang.code} 
+                                        onClick={(e) => { 
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setTranslationTarget(lang.code); 
+                                            setIsTranslationSheetOpen(false); 
+                                        }} 
+                                        className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors text-start ${translationTarget === lang.code ? 'bg-blue-50' : 'bg-white'}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-bold text-sm ${translationTarget === lang.code ? 'text-blue-700' : 'text-gray-700'}`}>{lang.label}</span>
+                                        </div>
+                                        {translationTarget === lang.code && <Check size={18} className="text-blue-600" />}
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="p-4 text-center text-gray-400 text-sm">{t('search_no_results')}</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>, document.body
+      )}
+
       {/* --- REPOST PAGE (Full Screen) --- */}
       {isRepostModalOpen && createPortal(
         <div className="fixed inset-0 z-[20000] bg-white flex flex-col animate-in slide-in-from-bottom duration-300">
-            {/* Header */}
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between pt-safe bg-white z-10 sticky top-0">
                 <button 
                     onClick={() => { setIsRepostModalOpen(false); setRepostText(''); }} 
@@ -759,9 +829,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                 </button>
             </div>
 
-            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-4 pb-10">
-                {/* Input Area */}
                 <div className="flex gap-3 mb-6">
                     <div className="flex-shrink-0">
                         <Avatar 
@@ -779,9 +847,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                     />
                 </div>
 
-                {/* Quoted Post Preview */}
                 <div className="border border-gray-200 rounded-xl overflow-hidden mx-1 shadow-sm">
-                    {/* Quoted Header */}
                     <div className="p-3 bg-gray-50 flex items-center gap-2 border-b border-gray-100">
                         <Avatar 
                             name={contentToRepost.user.name} 
@@ -794,10 +860,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                             <span className="text-[10px] text-gray-500">{contentToRepost.timeAgo}</span>
                         </div>
                     </div>
-                    
-                    {/* Quoted Content */}
                     <div className="bg-white">
-                        {renderPostContent(contentToRepost)}
+                        {renderPostContent(contentToRepost, true)}
                     </div>
                 </div>
             </div>
@@ -809,30 +873,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
         <div className="fixed inset-0 z-[10000] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsMenuOpen(false)} />
           <div className="bg-white w-full max-w-md rounded-t-3xl relative z-10 animate-in slide-in-from-bottom duration-300 pb-safe shadow-2xl overflow-hidden">
-             
              <div className="flex justify-center pt-3 pb-2" onClick={() => setIsMenuOpen(false)}>
                <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
              </div>
-
              <div className="p-5 pt-2 space-y-2">
-                {/* SHARE & COPY BUTTONS (NEW) */}
                 <button onClick={() => { handleNativeShare(); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100">
                    <Share2 size={22} className="text-blue-600" />
                    <span className="font-bold">{t('share')}</span>
                 </button>
-                
-                <button onClick={() => { 
-                    navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`); 
-                    alert(t('copy_link') + " (تم النسخ)"); 
-                    setIsMenuOpen(false); 
-                }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100">
+                <button onClick={() => { navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`); alert(t('copy_link') + " (تم النسخ)"); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100">
                    <Link size={22} className="text-purple-600" />
                    <span className="font-bold">{t('copy_link')}</span>
                 </button>
 
                 {post.user._id === currentUserId ? (
                    <>
-                     {/* Job Status Section - Only show if it looks like a job or general post by me */}
                      <div className="bg-gray-50 rounded-2xl p-2 mb-2">
                          <button onClick={() => handleJobStatus('hired')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-green-700">
                             <div className="p-2 bg-green-100 rounded-full"><CheckCircle size={20} /></div>
@@ -851,7 +906,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                              </button>
                          )}
                      </div>
-
                      <button onClick={handleDeletePost} className="w-full flex items-center gap-3 p-4 bg-red-50 hover:bg-red-100 rounded-2xl transition-colors text-red-600 mb-2">
                         <Trash2 size={22} />
                         <span className="font-bold">{t('delete')}</span>
@@ -859,14 +913,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                    </>
                 ) : (
                    <>
-                     {/* RESTORING CONTACT BUTTON - FIX: Strict Check for Contact Info */}
                      {hasContactInfo && jobStatus === 'open' && (
                         <button onClick={handleContactClick} className="w-full flex items-center gap-3 p-4 hover:bg-blue-50 rounded-2xl transition-colors text-blue-600 border border-gray-100 mb-2">
                             <Phone size={22} />
                             <span className="font-bold">{t('contact_header')}</span>
                         </button>
                      )}
-
                      <button onClick={handleHidePost} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100">
                         <EyeOff size={22} />
                         <span className="font-bold">{t('post_hide')}</span>
@@ -886,7 +938,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
         </div>, document.body
       )}
 
-      {/* The Rest of Modals (Share, Comments, etc.) are below as in original code... */}
       {isShareOpen && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsShareOpen(false)} />
@@ -904,8 +955,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
           </div>
         </div>, document.body
       )}
-      
-      {/* ... Other Modals ... */}
       
       {/* Comments Modal */}
       {isCommentsOpen && createPortal(
@@ -938,7 +987,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                                   </div>
                                   <div className="flex items-center gap-3 mt-1 px-1">
                                       <span className="text-[10px] text-gray-400">{getCommentRelativeTime(comment.createdAt)}</span>
-                                      <button onClick={() => { setReplyingTo(comment); inputRef.current?.focus(); }} className="text-[11px] font-bold text-gray-500">{t('reply')}</button>
+                                      <button 
+                                        onClick={() => { setReplyingTo(comment); setReplyingToUser(comment.user); inputRef.current?.focus(); }} 
+                                        className="text-[11px] font-bold text-gray-500 hover:text-gray-800"
+                                      >
+                                        {t('reply')}
+                                      </button>
                                   </div>
                               </div>
                               <div className="pt-2 flex flex-col items-center gap-2">
@@ -964,10 +1018,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                                               </div>
                                               <div className="flex items-center gap-2 mt-0.5 px-1">
                                                   <span className="text-[9px] text-gray-400">{getCommentRelativeTime(reply.createdAt)}</span>
+                                                  <button onClick={() => { setReplyingTo(comment); setReplyingToUser(reply.user); inputRef.current?.focus(); }} className="text-[9px] font-bold text-gray-500 hover:text-gray-700">{t('reply')}</button>
                                               </div>
                                           </div>
                                           <div className="flex flex-col items-center gap-1 pt-1">
-                                              <button onClick={() => handleCommentLike(reply._id, comment._id)} className="p-0.5">
+                                              <button 
+                                                onClick={(e) => { e.stopPropagation(); handleCommentLike(reply._id, comment._id); }} 
+                                                className="p-0.5 active:scale-90 transition-transform"
+                                              >
                                                   <Heart size={12} className={reply.isLiked ? "text-red-500 fill-red-500" : "text-gray-300"} />
                                               </button>
                                               <button onClick={() => setActiveCommentAction(reply)} className="p-0.5 text-gray-300 hover:text-gray-500">
@@ -1002,9 +1060,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                         <div className="flex items-center justify-between px-2 mb-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100">
                             <div className="flex items-center gap-1">
                                 <CornerDownLeft size={12} />
-                                <span>{t('replying_to')} <span className="font-bold text-blue-600">{replyingTo.user.name}</span></span>
+                                <span>{t('replying_to')} <span className="font-bold text-blue-600">{replyingToUser?.name || replyingTo.user.name}</span></span>
                             </div>
-                            <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-gray-200 rounded-full"><X size={12} /></button>
+                            <button onClick={() => { setReplyingTo(null); setReplyingToUser(null); }} className="p-1 hover:bg-gray-200 rounded-full"><X size={12} /></button>
                         </div>
                   )}
                   <div className="flex items-center gap-2">

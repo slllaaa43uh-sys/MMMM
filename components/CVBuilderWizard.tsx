@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, ArrowRight, ArrowLeft, Image as ImageIcon, 
   Briefcase, Languages, Check, Crown, 
-  MapPin, User, Send, Printer, Trash2, RotateCw, QrCode, Lock, BadgeCheck, Sparkles, FileOutput, AlertTriangle, ShieldAlert
+  MapPin, User, Send, Printer, Trash2, RotateCw, QrCode, Lock, BadgeCheck, Sparkles, FileOutput, AlertTriangle, ShieldAlert, Construction
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Logo from './Logo';
@@ -128,11 +128,11 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
 
   const handleSubmit = () => {
     if (!photoFile && !existingCV) {
-        alert("الصورة الشخصية ضرورية لإصدار البطاقة");
+        alert(language === 'ar' ? "الصورة الشخصية ضرورية لإصدار البطاقة" : "Profile photo is required to issue the card");
         return;
     }
     if (!fullName || !jobTitle || !birthDate) {
-        alert("يرجى إكمال البيانات الأساسية (الاسم، الوظيفة، التاريخ)");
+        alert(language === 'ar' ? "يرجى إكمال البيانات الأساسية (الاسم، الوظيفة، التاريخ)" : "Please complete basic details (Name, Job Title, Date)");
         return;
     }
 
@@ -207,7 +207,7 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
                 <Logo className="w-full h-full" />
             </div>
             <div className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
-                بطاقة مهنية
+                {t('cv_card_header')}
             </div>
         </div>
 
@@ -225,7 +225,7 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
                         />
                     </div>
                     <div className="bg-green-500/20 border border-green-500/50 text-green-300 text-[6px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider mt-1">
-                        Employed
+                        {t('cv_label_employed_badge')}
                     </div>
                 </div>
 
@@ -243,19 +243,19 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
                     <div className="grid grid-cols-2 gap-x-2 gap-y-2 text-[8px]">
                         {/* Age/DOB */}
                         <div>
-                            <span className="block text-gray-500 font-bold uppercase text-[6px]">العمر / الميلاد</span>
-                            <span className="text-white font-medium">{data.age ? `${data.age} سنة` : (data.birthDate || '---')}</span>
+                            <span className="block text-gray-500 font-bold uppercase text-[6px]">{t('cv_label_age_birth')}</span>
+                            <span className="text-white font-medium">{data.age ? `${data.age} ${t('cv_year_unit')}` : (data.birthDate || '---')}</span>
                         </div>
                         
                         {/* Education */}
                         <div>
-                            <span className="block text-gray-500 font-bold uppercase text-[6px]">المؤهل</span>
+                            <span className="block text-gray-500 font-bold uppercase text-[6px]">{t('cv_label_education')}</span>
                             <span className="text-white font-medium truncate block">{data.education || '---'}</span>
                         </div>
 
                         {/* Location */}
                         <div className="col-span-2">
-                            <span className="block text-gray-500 font-bold uppercase text-[6px]">الإقامة</span>
+                            <span className="block text-gray-500 font-bold uppercase text-[6px]">{t('cv_label_residence')}</span>
                             <span className="text-white font-medium">{data.country} {data.city ? `- ${data.city}` : ''}</span>
                         </div>
                     </div>
@@ -265,7 +265,7 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
             {/* Bio Section (Bottom of Front) */}
             {data.bio && (
                 <div className="mt-3 border-t border-white/10 pt-2">
-                    <span className="block text-gray-500 font-bold uppercase text-[6px] mb-0.5">نبذة</span>
+                    <span className="block text-gray-500 font-bold uppercase text-[6px] mb-0.5">{t('profile_bio')}</span>
                     <p className="text-[8px] text-gray-300 leading-relaxed line-clamp-2">
                         {data.bio}
                     </p>
@@ -297,7 +297,7 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
             
             {/* ID Number Section */}
             <div className="flex flex-col items-center justify-center mt-2">
-                <span className="text-[7px] text-gray-500 uppercase tracking-[0.2em] mb-1">رقم الهوية المهنية</span>
+                <span className="text-[7px] text-gray-500 uppercase tracking-[0.2em] mb-1">{t('cv_label_id_num')}</span>
                 <div className="font-mono text-sm tracking-widest text-white bg-white/5 px-3 py-1 rounded border border-white/10 shadow-inner">
                     {idString}
                 </div>
@@ -306,9 +306,7 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
             <div className="flex items-end justify-between border-t border-white/10 pt-3 mt-auto">
                 <div className="flex-1 pr-2">
                     <p className="text-[7px] text-gray-500 leading-relaxed">
-                        تم إصدار هذه البطاقة من منصة مهنتي لي. تعتبر وثيقة إثبات للحالة المهنية لحاملها.
-                        <br />
-                        Issued by Mehnati.li Platform.
+                        {t('cv_footer_text')}
                     </p>
                 </div>
                 <div className="bg-white p-1 rounded-sm flex-shrink-0">
@@ -335,7 +333,7 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
                     <ArrowRight size={22} className={language === 'en' ? 'rotate-180' : ''} />
                     <span className="font-bold text-sm">{t('back')}</span>
                 </button>
-                <h2 className="text-sm font-black text-gray-800 uppercase tracking-wide">معاينة البطاقة</h2>
+                <h2 className="text-sm font-black text-gray-800 uppercase tracking-wide">{t('cv_preview_header')}</h2>
                 <div className="w-8"></div>
             </div>
 
@@ -367,17 +365,17 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
 
                 <div className="mt-6 flex items-center justify-center gap-2 text-gray-400 text-xs animate-pulse print:hidden">
                     <RotateCw size={14} />
-                    <span>اضغط للقلب</span>
+                    <span>{t('cv_hint_flip')}</span>
                 </div>
 
                 <div className="mt-8 w-full max-w-sm space-y-3 print:hidden">
                     <button onClick={handlePrint} className="w-full py-3 bg-white border border-gray-200 text-gray-800 rounded-xl font-bold text-sm shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2">
                         <Printer size={18} className="text-blue-600" />
-                        طباعة البطاقة / PDF
+                        {t('cv_btn_print')}
                     </button>
-                    <button onClick={() => { if (window.confirm("هل أنت متأكد من حذف بطاقتك؟")) { if (onDeleteCV) onDeleteCV(); setStep('welcome'); } }} className="w-full py-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-bold text-sm shadow-sm hover:bg-red-100 flex items-center justify-center gap-2">
+                    <button onClick={() => { if (window.confirm(t('cv_confirm_delete'))) { if (onDeleteCV) onDeleteCV(); setStep('welcome'); } }} className="w-full py-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-bold text-sm shadow-sm hover:bg-red-100 flex items-center justify-center gap-2">
                         <Trash2 size={18} />
-                        حذف البطاقة
+                        {t('cv_btn_delete')}
                     </button>
                 </div>
             </div>
@@ -409,9 +407,9 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
          <button onClick={() => setStep('welcome')} className="text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-colors">
             <ArrowRight size={20} className={language === 'en' ? 'rotate-180' : ''} />
          </button>
-         <h2 className="text-base font-black text-gray-800">بيانات البطاقة</h2>
+         <h2 className="text-base font-black text-gray-800">{t('cv_form_title')}</h2>
          <button onClick={handleSubmit} className="bg-black text-white hover:bg-gray-800 px-4 py-1.5 rounded-full shadow-sm transition-colors active:scale-95 font-bold text-xs flex items-center gap-1">
-            تصدير
+            {t('cv_btn_export')}
             {language === 'ar' ? <FileOutput className="rotate-180" size={14} /> : <FileOutput size={14} />}
          </button>
       </div>
@@ -421,14 +419,14 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
             <div className="flex justify-center mb-2">
                 <div onClick={() => photoInputRef.current?.click()} className={`relative w-24 h-24 rounded-2xl border-2 flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-sm bg-white ${photoFile ? 'border-green-500' : 'border-dashed border-gray-300'}`}>
                     <input type="file" ref={photoInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
-                    {photoPreview ? <img src={photoPreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover" /> : <div className="flex flex-col items-center gap-1 text-gray-400"><ImageIcon size={24} className="text-blue-500" /><span className="text-[9px] font-bold">صورة شخصية</span></div>}
+                    {photoPreview ? <img src={photoPreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover" /> : <div className="flex flex-col items-center gap-1 text-gray-400"><ImageIcon size={24} className="text-blue-500" /><span className="text-[9px] font-bold">{t('cv_photo_upload_text')}</span></div>}
                 </div>
             </div>
             <div className="grid grid-cols-1 gap-2">
                 <div><label className="text-[10px] font-bold text-gray-500 mb-1 block px-1">{t('cv_label_fullname')} *</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm font-bold focus:border-black outline-none shadow-sm" /></div>
                 <div><label className="text-[10px] font-bold text-gray-500 mb-1 block px-1">{t('cv_label_jobtitle')} *</label><input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm font-bold focus:border-black outline-none shadow-sm" /></div>
             </div>
-            <div><label className="text-[10px] font-bold text-gray-500 mb-1 block px-1">{t('cv_label_bio')}</label><textarea value={bio} onChange={handleBioChange} className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm font-medium focus:border-black outline-none resize-none h-20 shadow-sm" placeholder="نبذة مختصرة تظهر خلف البطاقة..." /><div className={`text-[9px] text-right px-1 ${bio.length === 50 ? 'text-red-500' : 'text-gray-400'}`}>{bio.length}/50</div></div>
+            <div><label className="text-[10px] font-bold text-gray-500 mb-1 block px-1">{t('cv_label_bio')}</label><textarea value={bio} onChange={handleBioChange} className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm font-medium focus:border-black outline-none resize-none h-20 shadow-sm" placeholder={t('cv_label_bio_placeholder')} /><div className={`text-[9px] text-right px-1 ${bio.length === 50 ? 'text-red-500' : 'text-gray-400'}`}>{bio.length}/50</div></div>
             <div><label className="text-[10px] font-bold text-gray-500 mb-1 block px-1">{t('cv_label_dob')} *</label><div className="flex gap-2"><select value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} className="flex-1 bg-white border border-gray-200 rounded-xl p-3 text-sm font-bold outline-none text-center shadow-sm"><option value="">{t('cv_day')}</option>{days.map(d => <option key={d} value={d}>{d}</option>)}</select><select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="flex-[1.5] bg-white border border-gray-200 rounded-xl p-3 text-sm font-bold outline-none text-center shadow-sm"><option value="">{t('cv_month')}</option>{months.map(m => <option key={m.num} value={m.num}>{m.name}</option>)}</select><select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="flex-[1.2] bg-white border border-gray-200 rounded-xl p-3 text-sm font-bold outline-none text-center shadow-sm"><option value="">{t('cv_year')}</option>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div></div>
             <div className="grid grid-cols-2 gap-2">
                 <div><label className="text-[10px] font-bold text-gray-500 mb-1 block px-1">{t('cv_label_country')}</label><input type="text" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm font-bold outline-none shadow-sm" placeholder={t('cv_ph_country')} /></div>
@@ -479,7 +477,7 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
             {/* Title */}
             <h1 className="text-2xl font-black text-white mb-6 tracking-tight flex items-center gap-2">
                 <BadgeCheck className="text-amber-500" />
-                بطاقة الهوية المهنية
+                {t('cv_welcome_title')}
             </h1>
 
             {/* DUMMY CARD PREVIEW (SCALED DOWN) */}
@@ -494,27 +492,25 @@ const CVBuilderWizard: React.FC<CVBuilderWizardProps> = ({ onClose, onSubmit, ex
                 <div className="flex gap-3">
                     <ShieldAlert size={24} className="text-red-400 mt-0.5 flex-shrink-0" />
                     <div>
-                        <h3 className="text-xs font-bold text-red-200 mb-1">تنويه هام</h3>
-                        <p className="text-[10px] text-red-100/80 leading-relaxed">
-                            هذه البطاقة وثيقة تعريفية داخلية تثبت حالتك المهنية (موظف) داخل منصة مهنتي لي فقط. 
-                            <br/>
-                            <span className="font-bold underline">لا علاقة لهذه البطاقة بأي جهة حكومية رسمية ولا تعتبر وثيقة إثبات هوية رسمية.</span>
+                        <h3 className="text-xs font-bold text-red-200 mb-1">{t('cv_disclaimer_title')}</h3>
+                        <p className="text-[10px] text-red-100/80 leading-relaxed whitespace-pre-wrap">
+                            {t('cv_disclaimer_msg')}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* DISABLED Action Button */}
+            {/* MAINTENANCE MODE Button */}
             <div className="w-full max-w-xs space-y-3">
                 <button 
                   disabled={true}
-                  className="w-full py-4 bg-gray-800 text-gray-400 rounded-xl font-bold text-base shadow-none cursor-not-allowed flex items-center justify-center gap-2 border border-gray-700 opacity-70"
+                  className="w-full py-4 bg-gray-800 text-gray-400 rounded-xl font-bold text-base shadow-none cursor-not-allowed flex items-center justify-center gap-2 border border-gray-700 opacity-80"
                 >
-                  <Lock size={18} />
-                  <span>استخراج البطاقة (يتطلب توظيف)</span>
+                  <Construction size={18} />
+                  <span>{t('cv_btn_maintenance')}</span>
                 </button>
-                <p className="text-[9px] text-gray-500">
-                    يتم تفعيل هذا الزر تلقائياً عندما يقوم صاحب العمل بتغيير حالة طلبك إلى "تم التوظيف" داخل المنصة.
+                <p className="text-[9px] text-gray-500 leading-relaxed font-medium">
+                    {t('cv_msg_maintenance')}
                 </p>
             </div>
 

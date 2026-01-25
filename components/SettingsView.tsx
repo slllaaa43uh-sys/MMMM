@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   X, CreditCard, Languages, Moon, AlertTriangle, 
@@ -268,6 +267,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
         content = (
             <div className="space-y-3 pt-2">
                 <button 
+                    type="button"
                     onClick={() => { setLanguage('ar'); setActiveModal('none'); }}
                     className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${language === 'ar' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
                 >
@@ -279,6 +279,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
                 </button>
 
                 <button 
+                    type="button"
                     onClick={() => { setLanguage('en'); setActiveModal('none'); }}
                     className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${language === 'en' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
                 >

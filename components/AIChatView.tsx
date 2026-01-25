@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowRight, Send, Sparkles, User, Loader2, Briefcase, MapPin, Building2, ChevronRight, Trash2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
@@ -45,23 +45,12 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 2. Set welcome message only if history is empty
-  useEffect(() => {
-    if (messages.length === 0) {
-        setMessages([
-          {
-            id: 'welcome',
-            role: 'model',
-            text: t('ai_welcome_msg')
-          }
-        ]);
-    }
-  }, [t]);
-
-  // 3. Save to localStorage whenever messages change
+  // 2. Save to localStorage whenever messages change
   useEffect(() => {
       if (messages.length > 0) {
           localStorage.setItem('ai_chat_history', JSON.stringify(messages));
+      } else {
+          localStorage.removeItem('ai_chat_history');
       }
   }, [messages]);
 
@@ -70,37 +59,24 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, aiStatus]);
 
-  const handleClearHistory = () => {
-      localStorage.removeItem('ai_chat_history');
-      setMessages([{
-        id: 'welcome',
-        role: 'model',
-        text: t('ai_welcome_msg')
-      }]);
-  };
-
-  const handleSend = async () => {
-    if (!inputText.trim()) return;
-
-    const userMessageText = inputText;
-    const userMessageId = Date.now().toString();
-    
-    // Add User Message immediately
-    const newUserMsg: Message = { id: userMessageId, role: 'user', text: userMessageText };
-    setMessages(prev => [...prev, newUserMsg]);
-    
-    setInputText('');
+  // 3. Centralized AI Fetch Logic (Reusable for new messages or resuming)
+  const processAIResponse = useCallback(async (currentHistory: Message[]) => {
     setIsLoading(true);
     setAiStatus('thinking');
 
     try {
       const token = localStorage.getItem('token');
       
-      // Prepare history including the new message
-      const historyPayload = messages.map(m => ({
+      // Prepare history
+      const historyPayload = currentHistory.map(m => ({
         role: m.role === 'model' ? 'assistant' : 'user',
         content: m.text
       }));
+
+      // The message is already in history, so we don't send a separate 'message' field
+      // We send the last user message context via history
+      const lastUserMsg = currentHistory[currentHistory.length - 1];
+      const messageContent = lastUserMsg.text;
 
       const response = await fetch(`${API_BASE_URL}/api/v1/ai/chat`, {
         method: 'POST',
@@ -109,8 +85,8 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: userMessageText,
-          conversationHistory: historyPayload
+          message: messageContent, 
+          conversationHistory: historyPayload.slice(0, -1) // Send history excluding the new one we just added to UI to avoid duplication if backend handles it
         })
       });
 
@@ -138,7 +114,7 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
 
           try {
             const jsonStr = trimmedLine.replace('data: ', '');
-            if (jsonStr === '[DONE]') break; // Safety check if backend sends [DONE]
+            if (jsonStr === '[DONE]') break; 
 
             const data = JSON.parse(jsonStr);
             
@@ -170,7 +146,6 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
 
               case 'error':
                 console.error('AI Error from server:', data.message);
-                // Replace the streaming message with error text if empty, or append error
                 setMessages(prev => prev.map(m => 
                     m.id === modelMessageId 
                     ? { ...m, text: m.text ? m.text + `\n\n[Error: ${data.message}]` : (data.message || t('ai_error')), isStreaming: false } 
@@ -194,9 +169,43 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
       }]);
       setIsLoading(false);
       setAiStatus('online');
-    } finally {
-        setTimeout(() => inputRef.current?.focus(), 100);
     }
+  }, [t]);
+
+  // 4. Check for interrupted requests on mount
+  useEffect(() => {
+      // If the last message in history is from the User, it means the AI hasn't replied yet.
+      // We should resume/retry the request.
+      if (messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          if (lastMsg.role === 'user') {
+              processAIResponse(messages);
+          }
+      }
+  }, []); // Run once on mount
+
+  const handleClearHistory = () => {
+      localStorage.removeItem('ai_chat_history');
+      setMessages([]); // Empty start
+  };
+
+  const handleSend = async () => {
+    if (!inputText.trim()) return;
+
+    const userMessageText = inputText;
+    const userMessageId = Date.now().toString();
+    
+    // Add User Message immediately to state
+    const newUserMsg: Message = { id: userMessageId, role: 'user', text: userMessageText };
+    const updatedHistory = [...messages, newUserMsg];
+    
+    setMessages(updatedHistory);
+    setInputText('');
+    
+    // Trigger AI processing
+    processAIResponse(updatedHistory);
+    
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -259,13 +268,15 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-gray-50 dark:bg-black pb-24">
         
-        {/* Intro Branding (UPDATED TEXT) */}
-        <div className="flex flex-col items-center justify-center py-6 opacity-60">
-            <Logo className="w-16 h-16 grayscale opacity-30 mb-2" />
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center max-w-[80%] font-medium leading-relaxed">
-                تم تصميم هذا المساعد من قبل فريق العمل ليساعدكم في كتابه السيره الذاتيه او تواجه صعوبات في التطبيق فقط
-            </p>
-        </div>
+        {/* Intro Branding (Only if empty) */}
+        {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-6 opacity-60 mt-10">
+                <Logo className="w-16 h-16 grayscale opacity-30 mb-2" />
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center max-w-[80%] font-medium leading-relaxed">
+                    تم تصميم هذا المساعد من قبل فريق العمل ليساعدكم في كتابه السيره الذاتيه او تواجه صعوبات في التطبيق فقط
+                </p>
+            </div>
+        )}
 
         {messages.map((msg) => (
           <div 
@@ -353,7 +364,7 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
                     onKeyDown={handleKeyDown}
                     placeholder={t('ai_placeholder')}
                     className="flex-1 bg-transparent border-none outline-none py-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dir-auto"
-                    disabled={isLoading}
+                    // Removed disabled={isLoading} to allow typing while thinking
                 />
             </div>
             <button 
