@@ -1,8 +1,9 @@
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  ArrowRight, Camera, Edit2, Trash2, Loader2, Grid, Link as LinkIcon, MoreVertical
+  ArrowRight, Camera, Edit2, Trash2, Loader2, Grid, Link as LinkIcon, MoreVertical,
+  ShieldAlert, Mail, Lock
 } from 'lucide-react';
 import PostCard from './PostCard';
 import { Post } from '../types';
@@ -117,6 +118,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
   // Account Deletion States
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteVerification, setShowDeleteVerification] = useState(false); // New state for OTP modal
+  const [deleteCode, setDeleteCode] = useState(''); // New state for OTP input
+  const [isRequestingDeleteCode, setIsRequestingDeleteCode] = useState(false); // New loading state
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -812,13 +816,47 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
     setDeleteModal({ isOpen: false, type: null, id: null });
   };
 
-  const handleDeleteAccount = async () => {
+  // --- NEW ACCOUNT DELETION LOGIC (OTP) ---
+  const handleRequestDeleteCode = async () => {
+    setIsRequestingDeleteCode(true);
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/api/v1/users/me/account/request-delete`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            setShowDeleteConfirm(false); // Close first confirmation
+            setShowDeleteVerification(true); // Open OTP modal
+        } else {
+            const data = await response.json();
+            alert(data.message || t('error_occurred'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert(t('error_occurred'));
+    } finally {
+        setIsRequestingDeleteCode(false);
+    }
+  };
+
+  const handleFinalizeDelete = async () => {
+    if (!deleteCode.trim()) {
+        alert("يرجى إدخال رمز التحقق");
+        return;
+    }
+    
     setIsDeletingAccount(true);
     try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_BASE_URL}/api/v1/users/me/account`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ code: deleteCode })
         });
 
         if (response.ok) {
@@ -832,15 +870,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
             }
         } else {
             const data = await response.json();
-            alert(t('account_delete_fail') + ': ' + (data.message || data.msg || t('error_occurred')));
+            alert(t('account_delete_fail') + ': ' + (data.message || data.msg || t('verify_error')));
         }
     } catch (e) {
         console.error(e);
         alert(t('error_occurred'));
     } finally {
         setIsDeletingAccount(false);
-        setShowDeleteConfirm(false);
+        setShowDeleteVerification(false);
         setShowOptionsMenu(false);
+        setDeleteCode('');
     }
   };
 
@@ -1120,9 +1159,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
         document.body
       )}
 
+      {/* CONFIRM DELETE MODAL (Step 1) */}
       {showDeleteConfirm && createPortal(
         <div className="fixed inset-0 z-[301] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => !isDeletingAccount && setShowDeleteConfirm(false)} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => !isRequestingDeleteCode && setShowDeleteConfirm(false)} />
             <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 w-full max-w-sm relative z-10 shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-gray-800">
                 <div className="flex flex-col items-center text-center gap-4 pt-2">
                     <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-1 shadow-inner ring-4 ring-red-50/50 dark:ring-red-900/10">
@@ -1137,17 +1177,71 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
                     <div className="flex flex-col gap-3 w-full mt-4">
                         <button 
                             onClick={() => setShowDeleteConfirm(false)} 
-                            disabled={isDeletingAccount}
+                            disabled={isRequestingDeleteCode}
                             className="w-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 py-3.5 rounded-2xl font-bold text-base hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
                         >
                             {t('cancel')}
                         </button>
                         <button 
-                            onClick={handleDeleteAccount} 
-                            disabled={isDeletingAccount}
+                            onClick={handleRequestDeleteCode} 
+                            disabled={isRequestingDeleteCode}
                             className="w-full bg-red-600 text-white py-3.5 rounded-2xl font-bold text-base hover:bg-red-700 active:scale-95 transition-all shadow-lg shadow-red-200 dark:shadow-none flex items-center justify-center"
                         >
-                            {isDeletingAccount ? <Loader2 className="animate-spin" size={24} /> : t('delete_account_btn')}
+                            {isRequestingDeleteCode ? <Loader2 className="animate-spin" size={24} /> : t('delete_account_btn')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>,
+        document.body
+      )}
+
+      {/* VERIFICATION MODAL (Step 2) */}
+      {showDeleteVerification && createPortal(
+        <div className="fixed inset-0 z-[302] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => !isDeletingAccount && setShowDeleteVerification(false)} />
+            <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 w-full max-w-sm relative z-10 shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-gray-800">
+                <div className="flex flex-col items-center text-center gap-4 pt-2">
+                    <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-1 ring-4 ring-blue-50/50">
+                        <ShieldAlert size={32} className="text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">{t('verify_title')}</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs font-medium px-4 mb-4">
+                            تم إرسال رمز التحقق إلى بريدك الإلكتروني. الرجاء إدخاله لإتمام الحذف.
+                        </p>
+                    </div>
+                    
+                    {/* OTP Input Container */}
+                    <div className="relative w-full mb-2">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Lock size={18} className="text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            value={deleteCode}
+                            onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-3.5 pl-10 pr-4 text-center font-bold text-lg tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:tracking-normal placeholder:font-normal"
+                            placeholder="000000"
+                            maxLength={6}
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full mt-2">
+                        <button 
+                            onClick={handleFinalizeDelete} 
+                            disabled={isDeletingAccount || deleteCode.length !== 6}
+                            className="w-full bg-red-600 text-white py-3.5 rounded-2xl font-bold text-base hover:bg-red-700 active:scale-95 transition-all shadow-lg shadow-red-200 dark:shadow-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isDeletingAccount ? <Loader2 className="animate-spin" size={24} /> : t('confirm')}
+                        </button>
+                        <button 
+                            onClick={() => setShowDeleteVerification(false)} 
+                            disabled={isDeletingAccount}
+                            className="w-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 py-3.5 rounded-2xl font-bold text-base hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
+                        >
+                            {t('cancel')}
                         </button>
                     </div>
                 </div>

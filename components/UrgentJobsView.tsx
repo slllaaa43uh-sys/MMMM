@@ -1,149 +1,36 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowRight, MapPin, Clock, Zap, Filter, Search, Briefcase, DollarSign, Bell, BellOff, Layers, Loader2
+  MapPin, Loader2, Megaphone, Bell, BellOff
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { API_BASE_URL } from '../constants';
-import Logo from './Logo';
 import PostCard from './PostCard';
 import { Post } from '../types';
+import { API_BASE_URL } from '../constants';
+import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
-// Updated Imports
 import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
+import Logo from './Logo';
 
 interface UrgentJobsViewProps {
   onFullScreenToggle: (isFull: boolean) => void;
-  onLocationClick: () => void;
   currentLocation: { country: string; city: string | null };
-  onReport: (type: 'post' | 'comment' | 'reply', id: string, name: string) => void;
+  onLocationClick: () => void;
+  onReport: (type: 'post' | 'comment' | 'reply' | 'video', id: string, name: string) => void;
   onProfileClick?: (userId: string) => void;
 }
 
-const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ 
-  onFullScreenToggle, 
-  onLocationClick, 
-  currentLocation,
-  onReport,
-  onProfileClick
-}) => {
+const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, currentLocation, onLocationClick, onReport, onProfileClick }) => {
   const { t, language } = useLanguage();
+  const [activeFilter, setActiveFilter] = useState('all');
   const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // State for the active filter (Tag). null means "All"
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  
-  // Notification State
+  const [loading, setLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
-  // Helper for relative time
-  const getRelativeTime = (dateStr: string) => {
-      if (!dateStr) return '';
-      const date = new Date(dateStr);
-      const now = new Date();
-      const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-      if (seconds < 60) return language === 'ar' ? 'الآن' : 'Just now';
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return language === 'ar' ? `${minutes} د` : `${minutes}m`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return language === 'ar' ? `${hours} س` : `${hours}h`;
-      const days = Math.floor(hours / 24);
-      if (days < 30) return language === 'ar' ? `${days} يوم` : `${days}d`;
-      return language === 'ar' ? 'منذ فترة' : 'A while ago';
-  };
-
-  // 1. Initialize Notification State from Local Storage (Fast Load)
+  // Check subscription status
   useEffect(() => {
       const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
-      setIsSubscribed(!!localSubs['urgent-jobs']);
+      setIsSubscribed(!!localSubs['urgent_jobs']);
   }, []);
 
-  // 2. Fetch Data
-  useEffect(() => {
-    const fetchUrgentJobs = async () => {
-        setLoading(true);
-        try {
-            const token = localStorage.getItem('token');
-            const currentUserId = localStorage.getItem('userId');
-            
-            // Prepare location params
-            const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
-            const cityParam = currentLocation.city ? encodeURIComponent(currentLocation.city) : '';
-
-            // Fetch posts using server-side filtering for 'urgent' displayPage AND location
-            const response = await fetch(`${API_BASE_URL}/api/v1/posts?displayPage=urgent&country=${countryParam}&city=${cityParam}&limit=50`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const rawPosts = data.posts || [];
-                
-                // FILTER: Exclude my own posts
-                const filteredPosts = rawPosts.filter((p: any) => {
-                    const postUserId = p.user?._id || p.user?.id || p.user;
-                    return String(postUserId) !== String(currentUserId);
-                });
-                
-                const mappedPosts = filteredPosts.map((p: any) => {
-                    let locationString = t('location_general');
-                    
-                    if (p.country && p.country !== 'عام') {
-                         const loc = getDisplayLocation(p.country, p.city === 'كل المدن' ? null : p.city, language as 'ar'|'en');
-                         locationString = loc.cityDisplay ? `${loc.countryDisplay} | ${loc.cityDisplay}` : loc.countryDisplay;
-                    } else if (p.location) {
-                         locationString = p.location;
-                    }
-
-                    return {
-                        id: p._id || p.id,
-                        user: {
-                            id: p.user?._id || 'u_x',
-                            _id: p.user?._id,
-                            name: p.user?.name || 'مستخدم',
-                            avatar: p.user?.avatar ? (p.user.avatar.startsWith('http') ? p.user.avatar : `${API_BASE_URL}${p.user.avatar}`) : null
-                        },
-                        timeAgo: p.createdAt ? getRelativeTime(p.createdAt) : 'الآن',
-                        content: p.text || p.content || '',
-                        likes: p.likes || 0,
-                        comments: p.comments?.length || 0,
-                        shares: 0,
-                        isFeatured: true,
-                        category: p.category || t('urgent_label'),
-                        location: locationString, 
-                        title: p.title,
-                        jobStatus: 'open',
-                        contactPhone: p.contactPhone,
-                        contactEmail: p.contactEmail, 
-                        contactMethods: p.contactMethods || [], 
-                        specialTag: p.specialTag 
-                    };
-                });
-                setPosts(mappedPosts);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    fetchUrgentJobs();
-  }, [currentLocation, language, t]); 
-
-  const handleTagClick = (tagKey: string) => {
-      if (tagKey === 'urgent_opt_all') {
-          if (activeTag === null) return; 
-          setActiveTag(null);
-          return;
-      }
-      const tagValue = t(tagKey);
-      if (activeTag === tagValue) return;
-      setActiveTag(tagValue); 
-  };
-
-  // 3. Optimistic Subscribe Handler using Service
   const handleToggleSubscribe = async () => {
     const hasPermission = await requestPermissions();
 
@@ -157,25 +44,22 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
 
     if (!fcmToken || !authToken) {
       if (authToken) registerForPushNotifications();
-      alert('🔒 يرجى تسجيل الدخول أولاً لتفعيل التنبيهات.');
+      alert('⏳ جاري تهيئة التنبيهات... يرجى المحاولة بعد لحظات.');
       return;
     }
 
-    // Optimistic Update
     const previousState = isSubscribed;
     const newState = !previousState;
-    const topicKey = 'urgent-jobs';
+    const topicKey = 'urgent_jobs';
     
-    // Update State & Storage Immediately
     setIsSubscribed(newState);
     const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
     if (newState) localSubs[topicKey] = true;
     else delete localSubs[topicKey];
     localStorage.setItem('user_subscriptions', JSON.stringify(localSubs));
 
-    // Send Request
     const action = newState ? 'subscribe' : 'unsubscribe';
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/fcm/${action}`, {
         method: 'POST',
@@ -185,177 +69,247 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({
         },
         body: JSON.stringify({
           deviceToken: fcmToken,
-          topic: 'urgent-jobs'
+          topic: 'urgent_jobs'
         })
       });
 
       if (response.ok) {
-          alert(newState 
-            ? '✅ تم تفعيل إشعارات الوظائف العاجلة بنجاح!' 
-            : '🔕 تم إلغاء تفعيل إشعارات الوظائف العاجلة.'
-          );
+        alert(newState 
+            ? '✅ تم تفعيل إشعارات الوظائف المستعجلة بنجاح!' 
+            : '🔕 تم إلغاء تفعيل إشعارات الوظائف المستعجلة.'
+        );
       } else {
         throw new Error("Server rejected subscription");
       }
     } catch (error) {
-      console.error('Subscription error:', error);
-      // Revert UI on Error
+      console.error('Subscription toggle error:', error);
       setIsSubscribed(previousState);
       const revertedSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
       if (previousState) revertedSubs[topicKey] = true;
       else delete revertedSubs[topicKey];
       localStorage.setItem('user_subscriptions', JSON.stringify(revertedSubs));
-      
-      alert('❌ حدث خطأ في الاتصال، تعذر تغيير حالة الاشتراك.');
+      alert('❌ خطأ في الاتصال بالخادم، تعذر تغيير الحالة.');
     }
   };
 
-  // Filter posts based on active tag
-  const displayedPosts = activeTag 
-      ? posts.filter(p => p.specialTag === activeTag)
-      : posts;
-
-  // Helper to determine button style
-  const getButtonStyle = (tagKey: string) => {
-      let isActive = false;
-      if (tagKey === 'urgent_opt_all') isActive = activeTag === null;
-      else isActive = activeTag === t(tagKey);
-      
-      if (isActive) {
-          return "bg-red-600 text-white shadow-md shadow-red-200 border-transparent";
-      }
-      return "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700";
+  const getLocationLabel = () => {
+    const { countryDisplay, cityDisplay, flag } = getDisplayLocation(
+      currentLocation.country, 
+      currentLocation.city, 
+      language as 'ar' | 'en'
+    );
+    const flagStr = flag ? `${flag} ` : '';
+    if (cityDisplay) return `${flagStr}${countryDisplay} | ${cityDisplay}`;
+    return `${flagStr}${countryDisplay}`;
   };
 
+  const getRelativeTime = (dateStr: string) => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const now = new Date();
+      const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+      if (seconds < 60) return language === 'ar' ? 'الآن' : 'Just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return language === 'ar' ? `${minutes} د` : `${minutes}m`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return language === 'ar' ? `${hours} س` : `${hours}h`;
+      const days = Math.floor(hours / 24);
+      if (days < 30) return language === 'ar' ? `${days} يوم` : `${days}d`;
+      const months = Math.floor(days / 30);
+      if (months < 12) return language === 'ar' ? `${months} شهر` : `${months}mo`;
+      const years = Math.floor(months / 12);
+      return language === 'ar' ? `${years} سنة` : `${years}y`;
+  };
+
+  useEffect(() => {
+    const fetchUrgentPosts = async () => {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        const currentUserId = localStorage.getItem('userId');
+        
+        try {
+            const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
+            const cityParam = currentLocation.city ? encodeURIComponent(currentLocation.city) : '';
+            
+            // Build URL based on filter
+            let url = `${API_BASE_URL}/api/v1/posts?displayPage=urgent&country=${countryParam}&city=${cityParam}`;
+            
+            // Map activeFilter to Arabic tags used in backend
+            let specialTag = '';
+            if (activeFilter === 'now') specialTag = 'مطلوب الآن';
+            else if (activeFilter === 'temp') specialTag = 'عقود مؤقتة';
+            else if (activeFilter === 'daily') specialTag = 'دفع يومي';
+            
+            if (specialTag) {
+                url += `&specialTag=${encodeURIComponent(specialTag)}`;
+            }
+
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const postsArray = data.posts || [];
+                
+                if (Array.isArray(postsArray)) {
+                    // Filter out current user's posts
+                    const filteredPosts = postsArray.filter((p: any) => {
+                        const ownerId = p.user?._id || p.user?.id || p.user;
+                        return String(ownerId) !== String(currentUserId);
+                    });
+
+                    const mappedPosts: Post[] = filteredPosts.map((p: any) => {
+                        // Reactions logic
+                        const reactions = p.reactions || [];
+                        const isLiked = reactions.some((r: any) => String(r.user?._id || r.user || r) === String(currentUserId));
+                        const likesCount = reactions.filter((r: any) => !r.type || r.type === 'like').length;
+
+                        let locationString = t('location_general');
+                        if (p.scope === 'local' && p.country) {
+                            const postLoc = getDisplayLocation(p.country, p.city === 'كل المدن' ? null : p.city, language as 'ar'|'en');
+                            locationString = postLoc.cityDisplay ? `${postLoc.countryDisplay} | ${postLoc.cityDisplay}` : postLoc.countryDisplay;
+                        }
+
+                        return {
+                            id: p._id || p.id,
+                            user: {
+                                id: p.user?._id || 'u',
+                                _id: p.user?._id,
+                                name: p.user?.name || 'مستخدم',
+                                avatar: p.user?.avatar ? (p.user.avatar.startsWith('http') ? p.user.avatar : `${API_BASE_URL}${p.user.avatar}`) : null
+                            },
+                            timeAgo: p.createdAt ? getRelativeTime(p.createdAt) : 'الآن',
+                            content: p.text || p.content || '',
+                            image: p.media && p.media.length > 0 ? (p.media[0].url.startsWith('http') ? p.media[0].url : `${API_BASE_URL}${p.media[0].url}`) : undefined,
+                            media: p.media ? p.media.map((m: any) => ({ url: m.url.startsWith('http') ? m.url : `${API_BASE_URL}${m.url}`, type: m.type, thumbnail: m.thumbnail })) : [],
+                            likes: likesCount,
+                            comments: p.comments?.length || 0,
+                            shares: p.shares?.length || 0,
+                            location: locationString,
+                            isFeatured: p.isFeatured,
+                            specialTag: p.specialTag,
+                            title: p.title,
+                            jobStatus: p.jobStatus || 'open',
+                            contactPhone: p.contactPhone,
+                            contactEmail: p.contactEmail,
+                            contactMethods: p.contactMethods,
+                            isLiked: isLiked,
+                            reactions: reactions
+                        };
+                    });
+                    setPosts(mappedPosts);
+                } else {
+                    setPosts([]);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch urgent posts", error);
+            setPosts([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    fetchUrgentPosts();
+  }, [activeFilter, currentLocation, language, t]);
+
+  const filters = [
+      { id: 'all', label: t('search_tab_all') },
+      { id: 'now', label: t('urgent_opt_now') },
+      { id: 'temp', label: t('urgent_opt_temp') },
+      { id: 'daily', label: t('urgent_opt_daily') },
+  ];
+
   return (
-    <div className="bg-gray-50 dark:bg-black min-h-screen pb-24">
-      
-      {/* HEADER */}
-      <div className="bg-white dark:bg-[#121212] sticky top-0 z-20 shadow-sm border-b border-gray-100 dark:border-gray-800">
-        <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 shadow-sm rounded-full overflow-hidden border border-gray-100 dark:border-gray-700 bg-white">
-                    <Logo className="w-full h-full" />
-                </div>
-                <div>
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-black text-gray-800 dark:text-white">
-                            {t('urgent_jobs_title')}
-                        </h2>
-                        {/* Title Badge */}
-                        <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm shadow-red-200">
-                            {t('urgent_badge')}
-                        </span>
-                    </div>
-                    <p className="text-[10px] text-gray-500 font-medium">{t('urgent_jobs_subtitle')}</p>
-                </div>
-            </div>
+    <div className="bg-[#f0f2f5] dark:bg-black min-h-screen">
+      <div className="bg-white dark:bg-[#121212] sticky top-0 z-10 shadow-sm border-b border-gray-100 dark:border-gray-800">
+        <div className="px-4 py-4 flex items-center justify-between">
+           <div className="flex items-center gap-3">
+             <div className="w-12 h-12">
+               <Logo className="w-full h-full" />
+             </div>
+             <div>
+               <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                   {t('urgent_jobs_title')}
+                   <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded animate-pulse">{t('urgent_badge')}</span>
+               </h2>
+               <p className="text-[10px] text-gray-500 font-medium">{t('urgent_jobs_subtitle')}</p>
+             </div>
+           </div>
+           
+           <div className="flex items-center gap-2">
+             <button 
+                onClick={handleToggleSubscribe}
+                className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 ${
+                    isSubscribed 
+                    ? 'bg-red-100 text-red-600 shadow-inner ring-2 ring-red-200' 
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400'
+                }`}
+                title={isSubscribed ? "إلغاء تفعيل الإشعارات" : "تفعيل إشعارات الوظائف المستعجلة"}
+             >
+                {isSubscribed ? <Bell size={20} fill="currentColor" /> : <BellOff size={20} />}
+             </button>
 
-            <div className="flex items-center gap-2">
-                {/* --- NOTIFICATION BELL --- */}
-                <button 
-                    onClick={handleToggleSubscribe}
-                    className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 active:scale-90 ${
-                        isSubscribed 
-                        ? 'bg-red-50 text-red-600 border border-red-100 shadow-inner' 
-                        : 'bg-white hover:bg-gray-50 text-gray-400 border border-gray-100'
+             <button 
+                onClick={onLocationClick}
+                className="flex items-center gap-1.5 bg-white/80 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 py-1.5 px-3 rounded-full transition-colors border border-gray-100 dark:border-gray-700 shadow-sm"
+              >
+                <MapPin size={14} className="text-red-600 dark:text-red-400" />
+                <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[100px]">
+                  {getLocationLabel()}
+                </span>
+             </button>
+           </div>
+        </div>
+
+        {/* Filters */}
+        <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
+            {filters.map(filter => (
+                <button
+                    key={filter.id}
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+                        activeFilter === filter.id
+                        ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                        : 'bg-white dark:bg-[#1e1e1e] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50'
                     }`}
-                    title={isSubscribed ? "إلغاء تفعيل الإشعارات" : "تفعيل إشعارات الوظائف العاجلة"}
                 >
-                    {isSubscribed ? (
-                        <Bell size={18} fill="currentColor" className="transition-transform duration-300" />
-                    ) : (
-                        <BellOff size={18} className="transition-transform duration-300" />
-                    )}
+                    {filter.label}
                 </button>
-
-                <button 
-                    onClick={onLocationClick}
-                    className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 py-1.5 px-3 rounded-full transition-colors border border-gray-100 dark:border-gray-700"
-                >
-                    <MapPin size={14} className="text-red-600" />
-                    <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[100px]">
-                        {currentLocation.country === 'عام' ? t('location_general') : currentLocation.country}
-                    </span>
-                </button>
-            </div>
-        </div>
-
-        {/* Interactive Filter Strip */}
-        <div className="w-full overflow-x-auto no-scrollbar pb-2 pt-1">
-            <div className="flex items-center gap-2 px-4 min-w-max">
-                <button 
-                    onClick={() => handleTagClick('urgent_opt_now')}
-                    className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold transition-all border whitespace-nowrap ${getButtonStyle('urgent_opt_now')}`}
-                >
-                    <Clock size={10} /> {t('urgent_now')}
-                </button>
-                
-                <button 
-                    onClick={() => handleTagClick('urgent_opt_temp')}
-                    className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold whitespace-nowrap transition-all border ${getButtonStyle('urgent_opt_temp')}`}
-                >
-                    <Briefcase size={10} /> {t('temp_contracts')}
-                </button>
-                
-                <button 
-                    onClick={() => handleTagClick('urgent_opt_daily')}
-                    className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold whitespace-nowrap transition-all border ${getButtonStyle('urgent_opt_daily')}`}
-                >
-                    <DollarSign size={10} /> {t('daily_payment')}
-                </button>
-
-                {/* "All" Button */}
-                <button 
-                    onClick={() => handleTagClick('urgent_opt_all')}
-                    className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold whitespace-nowrap transition-all border ${getButtonStyle('urgent_opt_all')}`}
-                >
-                    <Layers size={10} /> {t('view_all')}
-                </button>
-            </div>
+            ))}
         </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="flex flex-col gap-1 pb-24"> 
-        {loading ? (
-            <div className="flex flex-col gap-3 p-3">
-                {[1,2,3].map(i => (
-                    <div key={i} className="bg-white dark:bg-[#1e1e1e] p-4 rounded-2xl shadow-sm animate-pulse h-40"></div>
-                ))}
+      <div className="flex flex-col gap-3 pb-10 pt-2 min-h-[80vh]">
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh]">
+               <Loader2 size={40} className="text-red-600 animate-spin" />
             </div>
-        ) : displayedPosts.length > 0 ? (
-            displayedPosts.map(post => (
-                <div key={post.id} className="animate-in fade-in slide-in-from-bottom-1 duration-200">
-                    <PostCard 
-                        post={post} 
-                        onReport={onReport} 
-                        onProfileClick={onProfileClick} 
-                        isActive={true} 
-                    />
+          ) : posts.length > 0 ? (
+             posts.map((post) => (
+                <PostCard key={post.id} post={post} onReport={onReport} onProfileClick={onProfileClick} />
+             ))
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in fade-in zoom-in duration-300">
+                <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center border border-red-100 shadow-sm relative">
+                   <Megaphone size={40} className="text-red-500" strokeWidth={1.5} />
+                   <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-sm border border-gray-100">
+                     <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white">
+                        <span className="text-lg font-bold leading-none mb-0.5">+</span>
+                     </div>
+                   </div>
                 </div>
-            ))
-        ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center opacity-60 p-3">
-                <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
-                    <Zap size={40} className="text-red-500" fill="currentColor" />
+                <div className="text-center px-6">
+                   <h3 className="font-bold text-xl text-gray-800 dark:text-gray-200 mb-2">{t('no_urgent_jobs')}</h3>
+                   <p className="text-gray-500 text-sm max-w-[240px] mx-auto leading-relaxed">
+                      {t('check_back_later')}
+                   </p>
                 </div>
-                <h3 className="font-bold text-gray-800 dark:text-gray-200">
-                    {activeTag ? `${t('no_urgent_jobs')} (${activeTag})` : t('no_urgent_jobs')}
-                </h3>
-                <p className="text-xs text-gray-500 mt-1 max-w-[200px]">{t('check_back_later')}</p>
-                {activeTag && (
-                    <button 
-                        onClick={() => setActiveTag(null)}
-                        className="mt-4 text-xs font-bold text-blue-600 underline"
-                    >
-                        {t('view_all')}
-                    </button>
-                )}
             </div>
-        )}
+          )}
       </div>
-
     </div>
   );
 };
