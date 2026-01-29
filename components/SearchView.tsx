@@ -1,23 +1,30 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, Clock, ArrowRight, Loader2, Briefcase, User, Store, Tag, ArrowUpLeft, DollarSign, Star, MapPin, Verified, MoreHorizontal, CheckCircle, Phone, Mail, MessageCircle, Trash2 } from 'lucide-react';
+import { X, Search, Clock, ArrowRight, Loader2, Verified, Check, Phone, Mail, MessageCircle, Copy, MapPin } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Avatar from './Avatar';
 import { API_BASE_URL } from '../constants';
+import PostCard from './PostCard'; // Import original PostCard
+import { Post } from '../types';
 
 interface SearchViewProps {
   onClose: () => void;
+  onReport?: (type: 'post' | 'comment' | 'reply' | 'video', id: string, name: string) => void;
+  onProfileClick?: (userId: string) => void;
 }
 
 // 1. GLOBAL CACHE FOR SUGGESTIONS
 let globalSuggestionsCache: string[] = [];
 
-const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
+const SearchView: React.FC<SearchViewProps> = ({ onClose, onReport }) => {
   const { t, language } = useLanguage();
   const [searchText, setSearchText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Results will be mixed: People (mapped internally) or Posts (mapped to Post type)
   const [results, setResults] = useState<any[]>([]);
+  
   const [suggestions, setSuggestions] = useState<string[]>(globalSuggestionsCache);
   const [activeTab, setActiveTab] = useState('all');
   const [resultStats, setResultStats] = useState<any>({});
@@ -32,10 +39,6 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
       }
   });
   
-  // Contact Modal State
-  const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<any>(null);
 
@@ -128,12 +131,14 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
               if (data.success) {
                   const mappedUsers = (data.users || []).map((u: any) => ({
                       _id: u._id,
-                      type: 'person',
+                      resultType: 'person', // Custom flag to distinguish
                       title: u.name,
                       subtitle: u.bio || (u.city ? u.city : ''),
                       image: u.avatar,
                       isVerified: u.isVerified,
-                      stats: `${u.followersCount || 0} ${t('profile_followers')}`
+                      stats: `${u.followersCount || 0} ${t('profile_followers')}`,
+                      contactPhone: u.phone,
+                      contactEmail: u.email
                   }));
                   setResults(mappedUsers);
               }
@@ -148,24 +153,48 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
               if (data.success) {
                   if (data.stats) setResultStats(data.stats);
                   
-                  const mappedPosts = (data.posts || []).map((p: any) => ({
-                      _id: p._id,
-                      type: p.type || 'general',
-                      title: p.title,
-                      content: p.content || p.text,
-                      subtitle: p.user?.name || t('app_name'),
-                      location: p.city || p.country || (p.scope === 'global' ? t('nav_world') : ''),
-                      image: p.user?.avatar,
-                      time: getRelativeTime(p.createdAt),
-                      price: p.price || p.jobDetails?.salary?.max || null,
-                      isFeatured: p.isFeatured,
-                      category: p.category,
-                      jobStatus: p.jobStatus,
-                      // Contact Info Mapping
-                      contactPhone: p.contactPhone,
-                      contactEmail: p.contactEmail,
-                      contactMethods: p.contactMethods || []
-                  }));
+                  const mappedPosts: Post[] = (data.posts || []).map((p: any) => {
+                      let locationString = p.city || p.country || (p.scope === 'global' ? t('nav_world') : t('location_general'));
+
+                      return {
+                          id: p._id,
+                          _id: p._id,
+                          user: {
+                              id: p.user?._id || 'unknown',
+                              _id: p.user?._id,
+                              name: p.user?.name || t('app_name'),
+                              avatar: getImageUrl(p.user?.avatar) || null
+                          },
+                          timeAgo: getRelativeTime(p.createdAt),
+                          content: p.content || p.text || '',
+                          image: getImageUrl(p.image),
+                          media: p.media ? p.media.map((m: any) => ({
+                              url: getImageUrl(m.url),
+                              type: m.type,
+                              thumbnail: m.thumbnail
+                          })) : [],
+                          likes: 0,
+                          comments: 0,
+                          shares: 0,
+                          isLiked: false,
+                          
+                          title: p.title,
+                          type: p.type || 'general',
+                          category: p.category,
+                          location: locationString,
+                          country: p.country,
+                          city: p.city,
+                          
+                          isFeatured: p.isFeatured,
+                          jobStatus: p.jobStatus,
+                          
+                          contactPhone: p.contactPhone,
+                          contactEmail: p.contactEmail,
+                          contactMethods: p.contactMethods || [],
+                          
+                          resultType: 'post' 
+                      };
+                  });
                   setResults(mappedPosts);
               }
           }
@@ -214,18 +243,6 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
       const map: Record<string, string> = { 'all': 'all', 'jobs': 'job', 'haraj': 'haraj' };
       const key = map[tabKey];
       return key && resultStats[key] !== undefined ? resultStats[key] : null;
-  };
-
-  // --- Handle Menu Click (Contact) ---
-  const handleMenuClick = (e: React.MouseEvent, item: any) => {
-      e.stopPropagation();
-      setSelectedItem(item);
-      
-      if (item.contactPhone || item.contactEmail) {
-          setContactModalOpen(true);
-      } else {
-          alert(language === 'ar' ? 'لا توجد معلومات تواصل متاحة لهذا المنشور' : 'No contact info available');
-      }
   };
 
   return (
@@ -290,11 +307,11 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
       </div>
 
       {/* 3. Content Area */}
-      <div className="flex-1 overflow-y-auto bg-white dark:bg-black pb-20">
+      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-black pb-20 no-scrollbar">
         
         {/* State 1: No Search Text (History & Suggestions) */}
         {!searchText && (
-            <div className="animate-in fade-in duration-500">
+            <div className="animate-in fade-in duration-500 bg-white dark:bg-black h-full">
                 
                 {/* 1. Recent Searches (History) */}
                 {searchHistory.length > 0 && (
@@ -343,9 +360,8 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
                             <button 
                                 key={idx} 
                                 onClick={() => handleSuggestionClick(tag)}
-                                className="px-4 py-2 bg-gray-50 dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+                                className="px-4 py-2 bg-gray-50 dark:bg-[#1e1e1e] border border-gray-100 dark:border-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             >
-                                <ArrowUpLeft size={14} className="text-gray-400" />
                                 {tag}
                             </button>
                         )) : (
@@ -358,125 +374,58 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
 
         {/* State 2: Results */}
         {searchText && (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col min-h-full">
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20">
+                    <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-black h-full">
                         <Loader2 size={32} className="animate-spin text-blue-600 mb-2" />
                         <p className="text-gray-400 text-sm font-medium">{t('loading')}</p>
                     </div>
                 ) : results.length > 0 ? (
-                    results.map((item) => (
-                        <div 
-                            key={item._id} 
-                            className="p-4 bg-white dark:bg-black border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-[#111] transition-colors cursor-pointer animate-in slide-in-from-bottom-2 duration-300 w-full"
-                        >
-                            <div className="flex items-start gap-3 w-full">
-                                {/* Avatar Section */}
-                                <div className="flex-shrink-0 mt-1">
-                                    {item.type === 'person' ? (
-                                        <div className="relative">
-                                            <Avatar name={item.title} src={getImageUrl(item.image)} className="w-12 h-12 rounded-full" />
-                                            {item.isVerified && (
-                                                <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white rounded-full p-0.5 border border-white">
-                                                    <Verified size={10} />
+                    <div className="flex flex-col gap-[1px]">
+                        {results.map((item) => {
+                            // Render Person Row (Read Only, No Click)
+                            if (item.resultType === 'person') {
+                                return (
+                                    <div 
+                                        key={item._id} 
+                                        className="p-4 bg-white dark:bg-black border-b border-gray-100 dark:border-gray-900 cursor-default animate-in slide-in-from-bottom-2 duration-300 w-full"
+                                    >
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative pointer-events-none">
+                                                    <Avatar name={item.title} src={getImageUrl(item.image)} className="w-12 h-12 rounded-full border border-gray-100" />
+                                                    {item.isVerified && (
+                                                        <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white rounded-full p-0.5 border border-white">
+                                                            <Verified size={10} />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
-                                            <Avatar name={item.subtitle} src={getImageUrl(item.image)} className="w-10 h-10 rounded-full border border-gray-100" />
-                                            <div className={`absolute -bottom-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center border border-white ${
-                                                item.type === 'job' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'
-                                            }`}>
-                                                {item.type === 'job' ? <Briefcase size={10} /> : (item.type === 'haraj' ? <Store size={10} /> : <Tag size={10} />)}
+                                                <div>
+                                                    <h4 className="font-bold text-gray-900 dark:text-white text-sm">{item.title}</h4>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.stats}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+                                );
+                            } 
+                            
+                            // Use PostCard directly but hide actions and disable profile click
+                            return (
+                                <div key={item.id} className="bg-white dark:bg-black mb-1 animate-in slide-in-from-bottom-2 duration-300 shadow-sm border-b border-gray-100 dark:border-gray-800">
+                                    <PostCard 
+                                        post={item} 
+                                        variant="feed"
+                                        onReport={onReport}
+                                        hideActions={true} // Hide Bottom Actions (Like, Comment, Repost)
+                                        disableProfileClick={true} // Prevent Profile Navigation
+                                    />
                                 </div>
-
-                                {/* Main Content */}
-                                <div className="flex-1 min-w-0 flex flex-col gap-1">
-                                    <div className="flex justify-between items-start gap-2 w-full">
-                                        <div className="flex flex-col min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm line-clamp-1 leading-snug">
-                                                    {item.type === 'person' ? item.title : item.subtitle}
-                                                </h4>
-                                                {item.isFeatured && (
-                                                    <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 rounded-full font-bold flex items-center gap-0.5 whitespace-nowrap">
-                                                        <Star size={8} fill="currentColor" /> {t('post_premium')}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {item.type !== 'person' && item.title && (
-                                                <p className="text-xs font-bold text-blue-600 mt-0.5 line-clamp-1">{item.title}</p>
-                                            )}
-                                            <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-0.5">
-                                                {item.time && <span className="flex items-center gap-0.5"><Clock size={10} /> {item.time}</span>}
-                                                {item.location && (
-                                                    <>
-                                                        <span>•</span>
-                                                        <span className="flex items-center gap-0.5"><MapPin size={10} /> {item.location}</span>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Menu Button - Triggers Contact Modal if available */}
-                                        <button 
-                                            className="text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded-full flex-shrink-0"
-                                            onClick={(e) => handleMenuClick(e, item)}
-                                        >
-                                            <MoreHorizontal size={18} />
-                                        </button>
-                                    </div>
-
-                                    {item.jobStatus && item.jobStatus !== 'open' && (
-                                        <div className="mt-1">
-                                            {item.jobStatus === 'hired' && (
-                                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1">
-                                                    <CheckCircle size={10} /> {t('status_hired')}
-                                                </span>
-                                            )}
-                                            {item.jobStatus === 'negotiating' && (
-                                                <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1">
-                                                    <Clock size={10} /> {t('status_negotiating')}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <div className="mt-1">
-                                        {item.type === 'person' ? (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-                                                {item.subtitle || item.stats}
-                                            </p>
-                                        ) : (
-                                            <p className="text-sm text-gray-800 dark:text-gray-300 line-clamp-3 leading-relaxed whitespace-pre-wrap font-normal">
-                                                {item.content || item.title}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-center gap-2 mt-2">
-                                        {item.category && (
-                                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-md font-medium">
-                                                {item.category}
-                                            </span>
-                                        )}
-                                        {item.price && (
-                                            <span className="text-[10px] font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-md flex items-center gap-0.5">
-                                                <DollarSign size={10} />
-                                                {item.price.toLocaleString()}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))
+                            );
+                        })}
+                    </div>
                 ) : (
-                    <div className="text-center py-20 opacity-50">
+                    <div className="text-center py-20 opacity-50 bg-white dark:bg-black h-full flex flex-col items-center justify-center">
                         <Search size={48} className="mx-auto mb-2 text-gray-300" />
                         <p className="text-sm font-bold text-gray-400">{t('search_no_results')}</p>
                     </div>
@@ -484,71 +433,6 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose }) => {
             </div>
         )}
       </div>
-
-      {/* CONTACT MODAL */}
-      {contactModalOpen && selectedItem && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-end justify-center">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setContactModalOpen(false)} />
-            <div className="bg-white w-full max-w-md rounded-t-3xl relative z-10 animate-slide-up-fast pb-safe p-6">
-                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6" />
-                <h3 className="font-bold text-xl text-center mb-6">{t('contact_header')}</h3>
-                
-                <div className="space-y-3">
-                    {/* WhatsApp */}
-                    {selectedItem.contactPhone && (
-                        <a 
-                            href={`https://wa.me/${selectedItem.contactPhone.replace(/\D/g, '')}`} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="flex items-center gap-4 p-4 bg-green-50 rounded-2xl hover:bg-green-100 transition-colors group"
-                        >
-                            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-green-200 group-hover:scale-110 transition-transform">
-                                <MessageCircle size={24} />
-                            </div>
-                            <div className="text-start">
-                                <h4 className="font-bold text-gray-900">{t('contact_method_whatsapp')}</h4>
-                                <p className="text-xs text-gray-500 mt-0.5 dir-ltr text-right">{selectedItem.contactPhone}</p>
-                            </div>
-                            <ArrowRight className={`mr-auto text-green-600 ${language === 'ar' ? 'rotate-180' : ''}`} />
-                        </a>
-                    )}
-
-                    {/* Phone Call */}
-                    {selectedItem.contactPhone && (
-                        <a href={`tel:${selectedItem.contactPhone}`} className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-colors group">
-                            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
-                                <Phone size={24} />
-                            </div>
-                            <div className="text-start">
-                                <h4 className="font-bold text-gray-900">{t('contact_method_call')}</h4>
-                                <p className="text-xs text-gray-500 mt-0.5 dir-ltr text-right">{selectedItem.contactPhone}</p>
-                            </div>
-                            <ArrowRight className={`mr-auto text-blue-600 ${language === 'ar' ? 'rotate-180' : ''}`} />
-                        </a>
-                    )}
-
-                    {/* Email */}
-                    {selectedItem.contactEmail && (
-                        <a href={`mailto:${selectedItem.contactEmail}`} className="flex items-center gap-4 p-4 bg-orange-50 rounded-2xl hover:bg-orange-100 transition-colors group">
-                            <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-orange-200 group-hover:scale-110 transition-transform">
-                                <Mail size={24} />
-                            </div>
-                            <div className="text-start">
-                                <h4 className="font-bold text-gray-900">{t('contact_method_email')}</h4>
-                                <p className="text-xs text-gray-500 mt-0.5">{selectedItem.contactEmail}</p>
-                            </div>
-                            <ArrowRight className={`mr-auto text-orange-600 ${language === 'ar' ? 'rotate-180' : ''}`} />
-                        </a>
-                    )}
-                </div>
-                
-                <button onClick={() => setContactModalOpen(false)} className="w-full mt-6 py-4 bg-gray-100 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition-colors">
-                    {t('cancel')}
-                </button>
-            </div>
-        </div>, document.body
-      )}
-
     </div>
   );
 };

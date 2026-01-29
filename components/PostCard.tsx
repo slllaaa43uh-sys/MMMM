@@ -38,6 +38,8 @@ interface PostCardProps {
   onReport?: (type: 'post' | 'comment' | 'reply', id: string, name: string) => void;
   onProfileClick?: (userId: string) => void;
   isActive?: boolean;
+  hideActions?: boolean; // New Prop to hide bottom actions
+  disableProfileClick?: boolean; // New Prop to disable profile navigation
 }
 
 const TARGET_LANGUAGES = [
@@ -112,7 +114,7 @@ const getCategoryIcon = (categoryName: string | undefined) => {
     return Building2; // Default
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, onReport, onProfileClick, isActive = true }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, onReport, onProfileClick, isActive = true, hideActions = false, disableProfileClick = false }) => {
   const { t, language, translationTarget, setTranslationTarget } = useLanguage();
   const currentUserId = localStorage.getItem('userId');
   
@@ -320,6 +322,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
 
   const handleAvatarClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (disableProfileClick) return; // Disable click if prop is true
     if (onProfileClick && post.user._id) {
         onProfileClick(post.user._id);
     }
@@ -708,8 +711,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
             {/* OVERLAYS (Floating Elements) */}
             
             {/* Top Left: Avatar */}
-            <div className="absolute top-3 left-3 z-20" onClick={handleAvatarClick}>
-                <div className="p-1 bg-white/20 backdrop-blur-md rounded-xl shadow-lg border border-white/20 cursor-pointer transition-transform active:scale-95">
+            <div 
+                className="absolute top-3 left-3 z-20" 
+                onClick={handleAvatarClick}
+            >
+                <div className={`p-1 bg-white/20 backdrop-blur-md rounded-xl shadow-lg border border-white/20 transition-transform active:scale-95 ${disableProfileClick ? '' : 'cursor-pointer'}`}>
                     <Avatar name={post.user.name} src={post.user.avatar} className="w-9 h-9 rounded-lg" textClassName="text-xs" />
                 </div>
             </div>
@@ -774,7 +780,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
             {/* Header Info */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex flex-col">
-                    <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1 flex items-center gap-2" onClick={handleAvatarClick}>
+                    <h3 
+                        className="font-bold text-gray-900 text-sm leading-tight line-clamp-1 flex items-center gap-2" 
+                        onClick={handleAvatarClick}
+                    >
                         {post.user.name}
                         {jobStatus === 'hired' && <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-green-200">{t('status_hired')}</span>}
                     </h3>
@@ -796,46 +805,50 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
             </p>
 
             {/* Stats Divider */}
-            <div className="flex justify-between items-center py-2 border-t border-gray-100 text-xs text-gray-500 mt-2">
-                <div className="flex items-center gap-1">
-                    <div className={`p-1 rounded-full ${optimisticLiked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                        <ThumbsUp size={10} className={optimisticLiked ? "fill-current" : ""} />
+            {!hideActions && (
+                <div className="flex justify-between items-center py-2 border-t border-gray-100 text-xs text-gray-500 mt-2">
+                    <div className="flex items-center gap-1">
+                        <div className={`p-1 rounded-full ${optimisticLiked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                            <ThumbsUp size={10} className={optimisticLiked ? "fill-current" : ""} />
+                        </div>
+                        <span className="font-bold">{likesCount}</span>
                     </div>
-                    <span className="font-bold">{likesCount}</span>
+                    <div className="flex gap-3">
+                        <button onClick={handleOpenComments} className="hover:text-gray-800 transition-colors">{commentsCount} {t('comment')}</button>
+                        <span>{post.repostsCount || 0} {t('share')}</span>
+                    </div>
                 </div>
-                <div className="flex gap-3">
-                    <button onClick={handleOpenComments} className="hover:text-gray-800 transition-colors">{commentsCount} {t('comment')}</button>
-                    <span>{post.repostsCount || 0} {t('share')}</span>
-                </div>
-            </div>
+            )}
         </div>
 
-        {/* 3. ACTIONS FOOTER */}
-        <div className="px-2 pb-2 flex justify-between items-center gap-1">
-            <button 
-                onClick={handleLike} 
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all active:scale-95 ${optimisticLiked ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50 text-gray-600'}`}
-            >
-                <ThumbsUp size={18} className={`transition-transform duration-300 ${optimisticLiked ? 'fill-current scale-110' : ''}`} />
-                <span className="text-xs font-bold">{t('like')}</span>
-            </button>
-            
-            <button 
-                onClick={handleOpenComments} 
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors active:scale-95"
-            >
-                <MessageCircle size={18} />
-                <span className="text-xs font-bold">{t('comment')}</span>
-            </button>
-            
-            <button 
-                onClick={handleRepostClick} 
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors active:scale-95"
-            >
-                <Repeat size={18} />
-                <span className="text-xs font-bold">{t('repost')}</span>
-            </button>
-        </div>
+        {/* 3. ACTIONS FOOTER - Conditioned on hideActions */}
+        {!hideActions && (
+            <div className="px-2 pb-2 flex justify-between items-center gap-1">
+                <button 
+                    onClick={handleLike} 
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all active:scale-95 ${optimisticLiked ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50 text-gray-600'}`}
+                >
+                    <ThumbsUp size={18} className={`transition-transform duration-300 ${optimisticLiked ? 'fill-current scale-110' : ''}`} />
+                    <span className="text-xs font-bold">{t('like')}</span>
+                </button>
+                
+                <button 
+                    onClick={handleOpenComments} 
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors active:scale-95"
+                >
+                    <MessageCircle size={18} />
+                    <span className="text-xs font-bold">{t('comment')}</span>
+                </button>
+                
+                <button 
+                    onClick={handleRepostClick} 
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors active:scale-95"
+                >
+                    <Repeat size={18} />
+                    <span className="text-xs font-bold">{t('repost')}</span>
+                </button>
+            </div>
+        )}
 
       </div>
 

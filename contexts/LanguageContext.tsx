@@ -458,6 +458,8 @@ const translations = {
     report_reason_label: "سبب الإبلاغ",
     report_placeholder_detail: "اكتب تفاصيل المشكلة هنا...",
     report_submit_button: "إرسال البلاغ",
+    report_already_sent: "لقد قمت بالإبلاغ عن هذا المحتوى مسبقاً",
+    report_failed: "فشل إرسال البلاغ",
     
     // Report (Settings)
     report_desc: "يرجى وصف المشكلة التي تواجهها بالتفصيل.",
@@ -1000,6 +1002,8 @@ const translations = {
     report_reason_label: "Reason for reporting",
     report_placeholder_detail: "Write details here...",
     report_submit_button: "Submit Report",
+    report_already_sent: "You have already reported this content",
+    report_failed: "Failed to send report",
     
     // Report (Settings)
     report_desc: "Please describe the issue you are facing in detail.",

@@ -495,6 +495,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
             </button>
           </div>
 
+          {/* Guest Mode Button - Position opposite to Language Toggle */}
+          {onGuestEnter && (
+            <div className={`absolute top-safe top-4 z-20 ${language === 'ar' ? 'right-4' : 'left-4'}`}>
+                <button 
+                    type="button"
+                    onClick={onGuestEnter}
+                    className="flex items-center gap-1.5 text-white/90 hover:text-white py-1.5 px-1 transition-colors font-bold text-xs"
+                >
+                    <span>{language === 'ar' ? 'الدخول الى التطبيق كزائر' : 'Enter as Guest'}</span>
+                    {language === 'ar' ? <ArrowLeft size={14} /> : <ArrowRightIcon size={14} />}
+                </button>
+            </div>
+          )}
+
           {/* App Name in Header */}
           <h1 className="text-3xl font-black text-white mb-8 tracking-tight drop-shadow-md">
              {t('app_name')}
@@ -586,18 +600,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
                 {t('forgot_password')}
              </button>
 
-             {/* Guest Mode Button - Only if enabled */}
-             {onGuestEnter && (
-                 <button 
-                    type="button"
-                    onClick={onGuestEnter}
-                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors font-bold mt-1"
-                 >
-                    {language === 'ar' ? 'تصفح كزائر' : 'Browse as Guest'}
-                 </button>
-             )}
-
-             <div className="flex items-center w-full gap-4 opacity-50">
+             <div className="flex items-center w-full gap-4 opacity-50 mt-1">
                 <div className="h-px bg-gray-200 flex-1"></div>
                 <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">OR</span>
                 <div className="h-px bg-gray-200 flex-1"></div>

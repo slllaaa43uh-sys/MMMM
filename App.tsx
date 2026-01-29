@@ -50,7 +50,7 @@ declare global {
 }
 
 const AppContent: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isGuestMode, setIsGuestMode] = useState(false); // New Guest State
 
@@ -362,13 +362,26 @@ const AppContent: React.FC = () => {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(payload)
         });
+        
         if (response.ok) {
             alert(t('post_report_success'));
             setReportData(prev => ({ ...prev, isOpen: false }));
         } else {
-            alert("فشل إرسال البلاغ.");
+            // Handle error response properly
+            const errorData = await response.json().catch(() => ({}));
+            
+            // Check for duplicate/already reported (400 or 409 usually)
+            if (response.status === 400 || response.status === 409) {
+                // If the user already reported, show a friendly message and close the modal
+                alert(t('report_already_sent'));
+                setReportData(prev => ({ ...prev, isOpen: false }));
+            } else {
+                alert(errorData.message || t('report_failed'));
+            }
         }
-    } catch (error) { alert("حدث خطأ في الاتصال."); }
+    } catch (error) { 
+        alert(language === 'ar' ? "حدث خطأ في الاتصال." : "Connection error."); 
+    }
     finally { setIsReporting(false); }
   };
 
@@ -824,9 +837,13 @@ const AppContent: React.FC = () => {
           <AIChatView onClose={() => setIsAIChatOpen(false)} />
       )}
 
-      {/* NEW: Search View */}
+      {/* NEW: Search View - Updated with Props */}
       {isSearchOpen && (
-          <SearchView onClose={() => setIsSearchOpen(false)} />
+          <SearchView 
+              onClose={() => setIsSearchOpen(false)} 
+              onReport={handleReport}
+              onProfileClick={handleOpenProfile}
+          />
       )}
 
       <ReportModal isOpen={reportData.isOpen} onClose={() => setReportData(prev => ({ ...prev, isOpen: false }))} onSubmit={handleSubmitReport} targetName={reportData.name} targetType={reportData.type} isSubmitting={isReporting} />
