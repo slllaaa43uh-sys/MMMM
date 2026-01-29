@@ -436,6 +436,36 @@ const AppContent: React.FC = () => {
         displayTitle = undefined;
     }
 
+    // --- FIX: Robust Media Mapping with Type Correction ---
+    const mappedMedia = Array.isArray(apiPost.media) ? apiPost.media.map((m: any) => {
+        let url = m.url || '';
+        // Ensure URL is absolute
+        if (url && !url.startsWith('http') && !url.startsWith('blob:')) {
+            url = `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+        }
+        
+        let type = m.type;
+        // Fix: If type is missing or wrong, infer from extension
+        if (url) {
+            const lowerUrl = url.toLowerCase();
+            if (lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.mov') || lowerUrl.endsWith('.webm') || lowerUrl.endsWith('.avi')) {
+                type = 'video';
+            } else if (!type) {
+                // If no type and not video extension, assume image
+                type = 'image';
+            }
+        }
+        
+        return { 
+            url, 
+            type: type || 'image', // Default fallback
+            thumbnail: m.thumbnail 
+        };
+    }) : [];
+
+    // Calculate Main Image (Video thumbnail or Image)
+    const mainImage = mappedMedia.length > 0 ? mappedMedia[0].url : (apiPost.image ? (apiPost.image.startsWith('http') ? apiPost.image : `${API_BASE_URL}${apiPost.image}`) : undefined);
+
     return {
       id: apiPost._id || apiPost.id || Math.random().toString(36).substr(2, 9),
       user: {
@@ -447,11 +477,8 @@ const AppContent: React.FC = () => {
       timeAgo: apiPost.createdAt ? getRelativeTime(apiPost.createdAt) : 'الآن',
       createdAt: apiPost.createdAt,
       content: apiPost.text || apiPost.content || '',
-      // FIX: Ensure image is populated if media array is empty but root image exists
-      image: apiPost.media && apiPost.media.length > 0 
-        ? (apiPost.media[0].url.startsWith('http') ? apiPost.media[0].url : `${API_BASE_URL}${apiPost.media[0].url}`) 
-        : (apiPost.image ? (apiPost.image.startsWith('http') ? apiPost.image : `${API_BASE_URL}${apiPost.image}`) : undefined),
-      media: apiPost.media ? apiPost.media.map((m: any) => ({ url: m.url.startsWith('http') ? m.url : `${API_BASE_URL}${m.url}`, type: m.type, thumbnail: m.thumbnail })) : [],
+      image: mainImage,
+      media: mappedMedia,
       likes: reactions.filter((r: any) => !r.type || r.type === 'like').length,
       comments: apiPost.comments?.length || 0,
       shares: apiPost.shares?.length || 0,

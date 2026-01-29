@@ -118,6 +118,30 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const { t, language, translationTarget, setTranslationTarget } = useLanguage();
   const currentUserId = localStorage.getItem('userId');
   
+  // Extract Media URL
+  const rawMediaUrl = post.media && post.media.length > 0 ? post.media[0].url : post.image;
+  const mainMediaUrl = rawMediaUrl && !rawMediaUrl.startsWith('http') 
+    ? `${API_BASE_URL}${rawMediaUrl}` 
+    : rawMediaUrl;
+
+  // Check if post has visual media - Simplified to trust mainMediaUrl presence
+  const hasMedia = !!mainMediaUrl;
+
+  // Video Detection Logic
+  // 1. Explicitly check 'type' from API (if backend says video)
+  const isVideoByType = post.media && post.media.length > 0 && post.media[0].type === 'video';
+  
+  // 2. Check extension from URL (Stronger check, overrides type if type is wrong)
+  const isVideoByExt = mainMediaUrl && (
+      mainMediaUrl.endsWith('.mp4') || 
+      mainMediaUrl.endsWith('.mov') || 
+      mainMediaUrl.endsWith('.webm') ||
+      mainMediaUrl.endsWith('.avi')
+  );
+  
+  // Final Decision: Is it a video?
+  const isVideo = isVideoByType || isVideoByExt;
+
   const [optimisticLiked, setOptimisticLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likes);
   const [commentsCount, setCommentsCount] = useState(post.comments);
@@ -656,17 +680,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     lang.label.toLowerCase().includes(langSearch.toLowerCase()) ||
     lang.code.toLowerCase().includes(langSearch.toLowerCase())
   );
-
-  // Check if post has visual media
-  const hasMedia = !!(post.image || (post.media && post.media.length > 0 && (post.media[0].type === 'image' || post.media[0].type === 'video')));
-  
-  // FIXED CODE: Correctly extract media URL for display
-  const rawMediaUrl = post.media && post.media.length > 0 ? post.media[0].url : post.image;
-  const mainMediaUrl = rawMediaUrl && !rawMediaUrl.startsWith('http') 
-    ? `${API_BASE_URL}${rawMediaUrl}` 
-    : rawMediaUrl;
-
-  const isVideo = post.media && post.media.length > 0 && post.media[0].type === 'video';
 
   // --- Dynamic Category/Title Logic ---
   const displayTitle = post.category || post.title || t('app_name');
