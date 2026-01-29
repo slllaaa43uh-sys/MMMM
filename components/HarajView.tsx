@@ -130,6 +130,9 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [contactPost, setContactPost] = useState<Post | null>(null);
 
+  // The requested WhatsApp message
+  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+
   const handleCategoryClick = (name: string) => {
     setLoading(true); 
     setActiveCategory(name);
@@ -253,7 +256,8 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     const token = localStorage.getItem('token');
     const currentUserId = localStorage.getItem('userId');
 
-    if (activeCategory && token) {
+    // Removed the "&& token" check so guests can fetch posts
+    if (activeCategory) {
       // Smooth loading logic
       if (posts.length === 0) {
           setLoading(true);
@@ -265,11 +269,10 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       const cityParam = currentLocation.city ? encodeURIComponent(currentLocation.city) : '';
       const url = `${API_BASE_URL}/api/v1/posts?category=${encodeURIComponent(activeCategory)}&country=${countryParam}&city=${cityParam}`;
       
-      fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const headers: any = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      fetch(url, { headers })
         .then(res => {
           if (!res.ok) throw new Error("Network response was not ok");
           return res.json();
@@ -277,6 +280,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
         .then(data => {
           const postsArray = data.posts || [];
           if (Array.isArray(postsArray) && postsArray.length > 0) {
+            // If logged in, filter out own posts. If guest, show all.
             const filteredPosts = postsArray.filter((p: any) => {
                 const postUserId = p.user?._id || p.user?.id || p.user;
                 return postUserId !== currentUserId;
@@ -725,7 +729,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
                                         <span className="text-[10px] font-bold text-blue-600">{t('contact_method_call')}</span>
                                     </a>
                                     <a 
-                                        href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}`}
+                                        href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="flex flex-col items-center justify-center gap-1 bg-green-50 p-3 rounded-xl shadow-sm border border-green-100 active:scale-95 transition-transform"
@@ -968,7 +972,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
                                     <span className="text-[10px] font-bold text-blue-600">{t('contact_method_call')}</span>
                                 </a>
                                 <a 
-                                    href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}`}
+                                    href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex flex-col items-center justify-center gap-1 bg-green-50 p-3 rounded-xl shadow-sm border border-green-100 active:scale-95 transition-transform"

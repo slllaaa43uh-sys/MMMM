@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Trash2, Eye, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, X, Trash2, Eye, Loader2, Image as ImageIcon, LogIn } from 'lucide-react';
 import Avatar from './Avatar';
 import { API_BASE_URL } from '../constants';
 import { Story, StoryGroup } from '../types';
@@ -13,6 +13,7 @@ interface StoriesProps {
   isUploading?: boolean;
   uploadProgress?: number;
   pendingStory?: { type: 'text'|'image'|'video', content: string, color?: string } | null;
+  onLoginRequest?: () => void; // New prop for guest handling
 }
 
 interface Viewer {
@@ -90,7 +91,7 @@ const StoryThumbnail = ({ src, type, alt }: { src: string; type: string; alt: st
   );
 };
 
-const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploading = false, uploadProgress = 0, pendingStory }) => {
+const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploading = false, uploadProgress = 0, pendingStory, onLoginRequest }) => {
   const { t, language } = useLanguage();
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,6 +122,7 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
   const startTimeRef = useRef<number>(0);
   const isTransitioningRef = useRef(false); // CRITICAL: Prevents double skipping
   
+  const token = localStorage.getItem('token');
   const currentUserId = localStorage.getItem('userId');
   const myName = localStorage.getItem('userName') || 'مستخدم';
   const myAvatar = localStorage.getItem('userAvatar');
@@ -160,10 +162,15 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
       setLoading(true);
       try {
         const token = localStorage.getItem('token');
-        const [feedRes, myStoriesRes] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/v1/stories/all`),
-            fetch(`${API_BASE_URL}/api/v1/stories/user/${currentUserId}`, { headers: { 'Authorization': `Bearer ${token}` } })
-        ]);
+        const fetches = [fetch(`${API_BASE_URL}/api/v1/stories/all`)];
+        
+        if (token && currentUserId) {
+            fetches.push(fetch(`${API_BASE_URL}/api/v1/stories/user/${currentUserId}`, { headers: { 'Authorization': `Bearer ${token}` } }));
+        }
+
+        const responses = await Promise.all(fetches);
+        const feedRes = responses[0];
+        const myStoriesRes = responses[1];
 
         let rawStories: Story[] = [];
 
@@ -182,7 +189,7 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
           }
         }
 
-        if (myStoriesRes.ok) {
+        if (myStoriesRes && myStoriesRes.ok) {
             const myData = await myStoriesRes.json();
             const myStoriesList = Array.isArray(myData) ? myData : (myData.stories || []);
             myStoriesList.forEach((s: any) => {
@@ -196,12 +203,18 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
         const uniqueStories = Array.from(uniqueStoriesMap.values()) as Story[];
 
         const groupsMap = new Map<string, StoryGroup>();
-        const myGroup: StoryGroup = { user: { id: currentUserId || 'me', _id: currentUserId || 'me', name: myName, avatar: myAvatar || '' }, stories: [], hasUnseen: false, isUser: true };
+        
+        // Only create 'myGroup' if user is logged in
+        let myGroup: StoryGroup | null = null;
+        if (token && currentUserId) {
+            myGroup = { user: { id: currentUserId, _id: currentUserId, name: myName, avatar: myAvatar || '' }, stories: [], hasUnseen: false, isUser: true };
+        }
 
         uniqueStories.forEach((story: Story) => {
             const storyUserId = getUserId(story.user);
             const isMe = currentUserId && String(storyUserId) === String(currentUserId);
-            if (isMe) {
+            
+            if (isMe && myGroup) {
                 if (!story.user.avatar && myAvatar) story.user.avatar = myAvatar;
                 if (!myGroup.stories.some(s => s._id === story._id)) myGroup.stories.push(story);
             } else {
@@ -214,28 +227,43 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
         });
 
         const sortByDate = (a: Story, b: Story) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        myGroup.stories.sort(sortByDate);
+        
+        if (myGroup) myGroup.stories.sort(sortByDate);
         groupsMap.forEach(g => g.stories.sort(sortByDate));
 
         const finalGroups = Array.from(groupsMap.values());
-        if (myGroup.stories.length > 0) finalGroups.unshift(myGroup);
+        
+        // Add current user's group to the beginning if logged in
+        if (myGroup && myGroup.stories.length > 0) {
+            finalGroups.unshift(myGroup);
+        } else if (token && myGroup) {
+            // Even if no stories, add placeholder for logged in user to create one
+            finalGroups.unshift(myGroup);
+        }
 
         setStoryGroups(finalGroups);
       } catch (error) { console.error(error); } finally { setLoading(false); }
     };
     fetchStories();
-  }, [refreshKey, currentUserId, myName, myAvatar, isUploading]);
+  }, [refreshKey, currentUserId, myName, myAvatar, isUploading, token]);
 
   const handleCreateClick = (e: React.MouseEvent) => { 
       e.stopPropagation();
-      if (onCreateStory) onCreateStory(); 
+      if (!token) {
+          if (onLoginRequest) onLoginRequest();
+      } else {
+          if (onCreateStory) onCreateStory(); 
+      }
   };
 
   const openViewer = async (groupIndex: number) => {
+    // If guest clicks create (index 0 usually reserved or separate logic needed)
+    // Here we handle guest logic in the render part, so openViewer assumes valid story view
+    
+    // Adjust index if guest (Guest doesn't have a personal story group at index 0)
+    // Actually, `storyGroups` won't have user group if guest.
     const group = storyGroups[groupIndex];
     if (!group || !group.stories.length) return;
-
-    if (isUploading && groupIndex === 0 && group.stories.length === 0) return;
 
     window.dispatchEvent(new CustomEvent('story-viewer-toggle', { detail: { isOpen: true } }));
     setActiveGroupIndex(groupIndex);
@@ -249,13 +277,17 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
     setIsBuffering(true);
     setIsVideoVisible(false); // Hide video initially
     
-    if (isUploading && groupIndex === 0) return;
+    if (isUploading && groupIndex === 0 && group.isUser) return;
 
     const userId = getUserId(group.user);
-    const token = localStorage.getItem('token');
+    // Token might be null for guest, but fetching public stories should work if API allows
+    const userToken = localStorage.getItem('token'); 
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/stories/user/${userId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/api/v1/stories/user/${userId}`, { 
+          headers: userToken ? { 'Authorization': `Bearer ${userToken}` } : {} 
+      });
+      
       if (response.ok) {
         const data = await response.json();
         const fullStories = Array.isArray(data) ? data : (data.stories || []);
@@ -471,6 +503,7 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
   
   const recordView = async (storyId: string) => {
       const token = localStorage.getItem('token');
+      if (!token) return; // Guests don't record views
       try {
           await fetch(`${API_BASE_URL}/api/v1/stories/${storyId}/view`, {
               method: 'POST',
@@ -492,8 +525,8 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
     
     if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     
-    // Mark as viewed
-    if (!currentGroup.isUser && currentStory._id) { 
+    // Mark as viewed (only if logged in)
+    if (!currentGroup.isUser && currentStory._id && token) { 
         const viewedKey = `viewed_story_${currentStory._id}`; 
         if (!sessionStorage.getItem(viewedKey)) { 
             recordView(currentStory._id); 
@@ -531,7 +564,7 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
         } 
     }
     return () => clearInterval(progressTimerRef.current);
-  }, [viewerOpen, activeGroupIndex, activeStoryIndex, storyGroups, isPaused, handleNext]);
+  }, [viewerOpen, activeGroupIndex, activeStoryIndex, storyGroups, isPaused, handleNext, token]);
 
   // --- SAFE USER PREVIEW LOGIC ---
   const myStoryGroup = storyGroups.find(g => g.isUser);
@@ -543,27 +576,45 @@ const Stories: React.FC<StoriesProps> = ({ onCreateStory, refreshKey, isUploadin
       <div className="bg-white py-4 mb-2 overflow-x-auto no-scrollbar">
         <div className="flex gap-2 px-3 min-w-max">
           
-          {/* Create Story Button */}
-          <div 
-            onClick={handleCreateClick}
-            className="relative w-24 h-40 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer group border border-gray-100 shadow-sm bg-white transition-transform active:scale-95"
-          >
-             <div className="h-3/4 w-full relative bg-gray-50">
-                <Avatar name={myName} src={myAvatar ? (myAvatar.startsWith('http') ? myAvatar : getMediaUrl(myAvatar)) : null} className="w-full h-full rounded-none object-cover" textClassName="text-2xl" />
-                <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
-             </div>
-             <div className="h-1/4 w-full bg-white relative">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 rounded-full p-0.5 border-2 border-white z-10">
-                    <Plus size={16} className="text-white" strokeWidth={3} />
+          {/* Create Story Button OR Login Button for Guests */}
+          {!token ? (
+             /* Guest Mode: Login Card */
+             <div 
+               onClick={onLoginRequest}
+               className="relative w-24 h-40 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer group border border-gray-100 shadow-sm transition-transform active:scale-95"
+             >
+                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex flex-col items-center justify-center p-2">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm mb-2 shadow-inner">
+                        <LogIn size={20} className="text-white" strokeWidth={2.5} />
+                    </div>
+                    <span className="text-[10px] font-bold text-white text-center leading-tight">
+                        {language === 'ar' ? 'تسجيل الدخول' : 'Login'}
+                    </span>
                 </div>
-                <div className="w-full h-full flex items-end justify-center pb-1.5">
-                    <span className="text-[10px] font-bold text-gray-900">{t('create_story')}</span>
-                </div>
              </div>
-          </div>
+          ) : (
+             /* Logged In Mode: Create Story Card */
+             <div 
+                onClick={handleCreateClick}
+                className="relative w-24 h-40 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer group border border-gray-100 shadow-sm bg-white transition-transform active:scale-95"
+             >
+                 <div className="h-3/4 w-full relative bg-gray-50">
+                    <Avatar name={myName} src={myAvatar ? (myAvatar.startsWith('http') ? myAvatar : getMediaUrl(myAvatar)) : null} className="w-full h-full rounded-none object-cover" textClassName="text-2xl" />
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
+                 </div>
+                 <div className="h-1/4 w-full bg-white relative">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 rounded-full p-0.5 border-2 border-white z-10">
+                        <Plus size={16} className="text-white" strokeWidth={3} />
+                    </div>
+                    <div className="w-full h-full flex items-end justify-center pb-1.5">
+                        <span className="text-[10px] font-bold text-gray-900">{t('create_story')}</span>
+                    </div>
+                 </div>
+             </div>
+          )}
 
-          {/* User's Story Preview */}
-          {(isUploading || userHasStories) && (
+          {/* User's Story Preview (Only if logged in and uploading/has stories) */}
+          {token && (isUploading || userHasStories) && (
              <div 
                onClick={() => !isUploading && openViewer(0)} 
                className="relative w-24 h-40 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer group border border-gray-100 shadow-sm transition-transform active:scale-95 bg-white"

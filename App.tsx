@@ -52,6 +52,8 @@ declare global {
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [isGuestMode, setIsGuestMode] = useState(false); // New Guest State
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   
@@ -288,6 +290,12 @@ const AppContent: React.FC = () => {
 
   const [currentLocation, setCurrentLocation] = useState<{ country: string; city: string | null }>({ country: 'عام', city: null });
 
+  // Function to return to Login Page
+  const handleRequireLogin = () => {
+      setIsGuestMode(false);
+      setToken(null);
+  };
+
   const handleLogout = () => {
     clearNotificationsCache();
     clearProfileCache();
@@ -313,17 +321,30 @@ const AppContent: React.FC = () => {
     setUnreadNotificationsCount(0);
     setIsLoading(true); 
     setToken(null);
+    setIsGuestMode(false); // Reset guest mode on logout
     BadgeCounterService.clearBadge();
   };
 
   const handleLocationSelect = (country: string, city: string | null) => setCurrentLocation({ country, city });
   const handleSetActiveTab = (newTab: string) => activeTab !== newTab && setActiveTab(newTab);
   const handleOpenProfile = (userId: string | null = null) => setViewingProfileId(userId || 'me');
-  const handleReport = (type: 'post' | 'comment' | 'reply' | 'video', id: string, name: string) => setReportData({ isOpen: true, type, id, name });
+  
+  const handleReport = (type: 'post' | 'comment' | 'reply' | 'video', id: string, name: string) => {
+    // Check if user is logged in
+    if (!token) {
+        alert(t('login_required_to_report'));
+        return;
+    }
+    setReportData({ isOpen: true, type, id, name });
+  };
 
   const handleSubmitReport = async (reason: string) => {
     const token = localStorage.getItem('token');
-    if (!token) { alert("يرجى تسجيل الدخول للإبلاغ."); return; }
+    if (!token) { 
+        // Guest check
+        handleRequireLogin();
+        return; 
+    }
     setIsReporting(true);
     try {
         const typeToSend = reportData.type === 'video' ? 'post' : reportData.type;
@@ -648,8 +669,6 @@ const AppContent: React.FC = () => {
 
   // --- FETCHING LOGIC FOR HOME FEED WITH PAGINATION (FIXED) ---
   const fetchFeedPosts = async (pageNum: number, isRefresh: boolean = false) => {
-    if (!token) return;
-    
     // 1. OFFLINE HANDLING: Load from Cache
     if (!navigator.onLine) {
         if (isRefresh) {
@@ -676,7 +695,11 @@ const AppContent: React.FC = () => {
     }
 
     try {
-      const headers = { 'Authorization': `Bearer ${token}` };
+      const headers: Record<string, string> = {};
+      if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
       const cityParam = currentLocation.city ? encodeURIComponent(currentLocation.city) : '';
       
@@ -720,8 +743,8 @@ const AppContent: React.FC = () => {
         }
       }
       
-      // Fetch suggested users (only on initial refresh)
-      if (isRefresh) {
+      // Fetch suggested users (only on initial refresh and if user is logged in)
+      if (isRefresh && token) {
         const usersRes = await fetch(`${API_BASE_URL}/api/v1/users?limit=1000`, { headers });
         if(usersRes.ok) {
           const data = await usersRes.json();
@@ -763,7 +786,10 @@ const AppContent: React.FC = () => {
       setSelectedNotification(notif);
   };
 
-  if (!token) return <LoginPage onLoginSuccess={setToken} />;
+  // Show Login Page if no token and not in Guest Mode
+  if (!token && !isGuestMode) {
+      return <LoginPage onLoginSuccess={setToken} onGuestEnter={() => setIsGuestMode(true)} />;
+  }
 
   const isAnyModalOpen = isCreateModalOpen || isCreateStoryOpen || reportData.isOpen || isLocationDrawerOpen || isCVWizardOpen || isAIChatOpen || isSearchOpen;
   const isHomeActive = activeTab === 'home' && !viewingProfileId && !isSettingsOpen && !isNotificationsOpen && !selectedNotification && !suggestedViewType && !isAnyModalOpen;
@@ -828,29 +854,45 @@ const AppContent: React.FC = () => {
                   <Header 
                     currentLocation={currentLocation} 
                     onLocationClick={() => setIsLocationDrawerOpen(true)} 
-                    onNotificationsClick={handleOpenNotifications} 
+                    onNotificationsClick={() => {
+                        if (token) handleOpenNotifications();
+                        else handleRequireLogin();
+                    }} 
                     onSettingsClick={() => setIsSettingsOpen(true)} 
                     onDiscoveryClick={() => {}} 
-                    onAddCVClick={() => setIsCVWizardOpen(true)}
+                    onAddCVClick={() => {
+                        if (token) setIsCVWizardOpen(true);
+                        else handleRequireLogin();
+                    }}
                     onAIChatClick={() => setIsAIChatOpen(true)}
                     onSearchClick={() => setIsSearchOpen(true)} // Handle Search Click
                     unreadCount={unreadNotificationsCount} 
                   />
-                  <CreatePostBar onOpen={() => setIsCreateModalOpen(true)} />
+                  <CreatePostBar 
+                    onOpen={() => {
+                        if (token) setIsCreateModalOpen(true);
+                        else handleRequireLogin();
+                    }} 
+                    onLoginRequest={handleRequireLogin}
+                  />
                 </div>
               )}
               <Stories 
-                  onCreateStory={() => setIsCreateStoryOpen(true)} 
+                  onCreateStory={() => {
+                      if (token) setIsCreateStoryOpen(true);
+                      else handleRequireLogin();
+                  }} 
                   refreshKey={storiesRefreshKey} 
                   isUploading={isUploadingStory}
                   uploadProgress={storyUploadProgress}
                   pendingStory={pendingStory} 
+                  onLoginRequest={handleRequireLogin}
               />
               {isLoading ? (
                 <div className="flex flex-col mt-2">{[1, 2, 3].map(i => <div key={i} className="bg-white mb-3 shadow-sm py-4 px-4 relative overflow-hidden"><div className="animate-pulse flex flex-col gap-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-gray-200 shrink-0"></div><div className="flex-1 space-y-2"><div className="h-2.5 bg-gray-200 rounded w-1/4"></div><div className="h-2 bg-gray-100 rounded w-1/6"></div></div></div><div className="space-y-3 pt-2"><div className="h-2.5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 rounded-full w-full"></div><div className="h-2.5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 rounded-full w-[95%]"></div><div className="h-2.5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 rounded-full w-[90%]"></div><div className="h-2.5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 rounded-full w-[60%]"></div></div></div></div>)}</div>
               ) : (
                 <>
-                  <div className="flex flex-col gap-1 mt-2">
+                  <div className="flex flex-col gap-[1px] mt-0 bg-gray-100 dark:bg-gray-800">
                     {posts.map(post => <PostCard key={post.id} post={post} onReport={handleReport} onProfileClick={handleOpenProfile} isActive={isHomeActive} />)}
                   </div>
                   
@@ -864,7 +906,7 @@ const AppContent: React.FC = () => {
                     </div>
                   ) : (
                     posts.length > 0 && hasMore && (
-                      <div className="px-3 py-2">
+                      <div className="px-3 pb-2 pt-[2px]">
                         <button 
                           onClick={handleLoadMore}
                           disabled={isLoadMoreLoading}
@@ -924,7 +966,10 @@ const AppContent: React.FC = () => {
              </div>
           </div>
         </main>
-        {!isFullScreen && !isSettingsOpen && !viewingProfileId && !isNotificationsOpen && !selectedNotification && !suggestedViewType && <BottomNav activeTab={activeTab} setActiveTab={handleSetActiveTab} onOpenCreate={() => setIsCreateModalOpen(true)} />}
+        {!isFullScreen && !isSettingsOpen && !viewingProfileId && !isNotificationsOpen && !selectedNotification && !suggestedViewType && <BottomNav activeTab={activeTab} setActiveTab={handleSetActiveTab} onOpenCreate={() => {
+            if (token) setIsCreateModalOpen(true);
+            else handleRequireLogin();
+        }} />}
       </div>
     </div>
   );

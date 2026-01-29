@@ -131,6 +131,9 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [contactPost, setContactPost] = useState<Post | null>(null);
 
+  // The requested WhatsApp message
+  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+
   const handleSubPageSelect = (type: 'seeker' | 'employer') => {
     if (selectedCategory) {
       setLoading(true); 
@@ -260,7 +263,8 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     const token = localStorage.getItem('token');
     const currentUserId = localStorage.getItem('userId');
 
-    if (activeSubPage && token) {
+    // Removed the "&& token" check so guests can fetch posts
+    if (activeSubPage) {
         // Smooth loading logic
         if (posts.length === 0) {
             setLoading(true);
@@ -273,11 +277,10 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
       const postTypeValue = activeSubPage.type === 'seeker' ? 'ابحث عن وظيفة' : 'ابحث عن موظفين';
       const url = `${API_BASE_URL}/api/v1/posts?category=${encodeURIComponent(activeSubPage.category)}&postType=${encodeURIComponent(postTypeValue)}&country=${countryParam}&city=${cityParam}`;
       
-      fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const headers: any = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      fetch(url, { headers })
         .then(res => {
           if (!res.ok) throw new Error("Network response was not ok");
           return res.json();
@@ -285,6 +288,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
         .then(data => {
             const postsArray = data.posts || [];
             if (Array.isArray(postsArray) && postsArray.length > 0) {
+                // If logged in, filter out own posts. If guest, show all.
                 const filteredPosts = postsArray.filter((p: any) => {
                     const postUserId = p.user?._id || p.user?.id || p.user;
                     return postUserId !== currentUserId;
@@ -485,10 +489,10 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
 
                 <button 
                   onClick={onLocationClick}
-                  className="flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100 py-1.5 px-3 rounded-full transition-colors border border-gray-100"
+                  className="flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100 py-1.5 px-3 rounded-full transition-colors border border-gray-100 dark:border-gray-700 shadow-sm"
                 >
-                  <MapPin size={14} className="text-purple-600" />
-                  <span className="text-[10px] font-bold text-gray-700 truncate max-w-[100px]">
+                  <MapPin size={14} className="text-purple-600 dark:text-purple-400" />
+                  <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[100px]">
                     {getLocationLabel()}
                   </span>
                 </button>
@@ -746,7 +750,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                                         <span className="text-[10px] font-bold text-blue-600">{t('contact_method_call')}</span>
                                     </a>
                                     <a 
-                                        href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}`}
+                                        href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="flex flex-col items-center justify-center gap-1 bg-green-50 p-3 rounded-xl shadow-sm border border-green-100 active:scale-95 transition-transform"
@@ -1030,7 +1034,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                                     <span className="text-[10px] font-bold text-blue-600">{t('contact_method_call')}</span>
                                 </a>
                                 <a 
-                                    href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}`}
+                                    href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex flex-col items-center justify-center gap-1 bg-green-50 p-3 rounded-xl shadow-sm border border-green-100 active:scale-95 transition-transform"
@@ -1075,6 +1079,67 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                 <button onClick={() => setContactPost(null)} className="w-full mt-6 py-4 bg-gray-100 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition-colors">
                     {t('close')}
                 </button>
+            </div>
+        </div>, document.body
+      )}
+
+      {/* --- LANGUAGE SELECTION SHEET --- */}
+      {isLangSheetOpen && createPortal(
+        <div className="fixed inset-0 z-[10002] flex items-end justify-center">
+            <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsLangSheetOpen(false)} />
+            <div className="bg-white w-full max-w-md h-[80vh] rounded-t-2xl relative z-10 animate-in slide-in-from-bottom duration-300 flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-800">{t('translation_settings')}</h3>
+                    <button type="button" onClick={() => setIsLangSheetOpen(false)} className="bg-gray-100 p-1 rounded-full"><X size={20} /></button>
+                </div>
+                
+                <div className="p-4 border-b border-gray-50">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                            type="text"
+                            placeholder={language === 'ar' ? 'بحث عن لغة...' : 'Search language...'}
+                            value={langSearch}
+                            onChange={(e) => setLangSearch(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4">
+                    <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
+                        <span className="text-xs text-gray-500 font-bold mb-2 block">{t('source_lang')}</span>
+                        <div className="flex items-center justify-between"><span className="font-bold text-gray-800">Auto Detect</span><Check size={18} className="text-gray-400" /></div>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 overflow-hidden">
+                        <div className="bg-gray-50 p-3 border-b border-gray-100"><span className="text-xs text-gray-500 font-bold">{t('target_lang')}</span></div>
+                        <div className="max-h-[400px] overflow-y-auto">
+                            {filteredLanguages.length > 0 ? (
+                                filteredLanguages.map((lang) => (
+                                    <button 
+                                        type="button"
+                                        key={lang.code} 
+                                        onClick={(e) => { 
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setTranslationTarget(lang.code); 
+                                            setIsLangSheetOpen(false); 
+                                        }} 
+                                        className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors text-start ${translationTarget === lang.code ? 'bg-blue-50' : 'bg-white'}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {lang.flag && <span className="text-lg">{lang.flag}</span>}
+                                            <span className={`font-bold text-sm ${translationTarget === lang.code ? 'text-blue-700' : 'text-gray-700'}`}>{lang.label}</span>
+                                        </div>
+                                        {translationTarget === lang.code && <Check size={18} className="text-blue-600" />}
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="p-4 text-center text-gray-400 text-sm">{t('search_no_results')}</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>, document.body
       )}

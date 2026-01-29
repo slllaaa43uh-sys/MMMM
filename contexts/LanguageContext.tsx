@@ -165,6 +165,7 @@ const translations = {
     more_options: "المزيد من الخيارات",
     drafts: "المسودات",
     load_more: "عرض المزيد",
+    login_required_to_report: "الرجاء تسجيل الدخول أولاً",
     
     // Translation
     translate_post: "ترجمة المنشور",
@@ -706,6 +707,7 @@ const translations = {
     more_options: "More Options",
     drafts: "Drafts",
     load_more: "Show More",
+    login_required_to_report: "Please login first",
     
     // Translation
     translate_post: "Translate",

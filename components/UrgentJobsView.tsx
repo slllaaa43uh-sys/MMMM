@@ -104,6 +104,9 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
   // Contact Modal State
   const [contactPost, setContactPost] = useState<Post | null>(null);
 
+  // The requested WhatsApp message
+  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+
   // Check subscription status
   useEffect(() => {
       const localSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
@@ -697,7 +700,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                                     <span className="text-[10px] font-bold text-blue-600">{t('contact_method_call')}</span>
                                 </a>
                                 <a 
-                                    href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}`}
+                                    href={`https://wa.me/${contactPost.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex flex-col items-center justify-center gap-1 bg-green-50 p-3 rounded-xl shadow-sm border border-green-100 active:scale-95 transition-transform"
@@ -746,6 +749,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
         </div>, document.body
       )}
 
+      {/* --- LANGUAGE SELECTION SHEET --- */}
       {isLangSheetOpen && createPortal(
         <div className="fixed inset-0 z-[10002] flex items-end justify-center">
             <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsLangSheetOpen(false)} />

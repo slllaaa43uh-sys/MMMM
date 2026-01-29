@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   X, CreditCard, Languages, Moon, AlertTriangle, 
@@ -38,6 +39,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
   
   // Format avatar URL if needed
   const avatarSrc = userAvatar ? (userAvatar.startsWith('http') ? userAvatar : `${API_BASE_URL}${userAvatar}`) : null;
+
+  const handleProfileSectionClick = () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+          onProfileClick();
+      } else {
+          // You can customize this message or add a translation key
+          alert(language === 'ar' ? 'الرجاء تسجيل الدخول أولاً' : 'Please login first');
+      }
+  };
 
   const settingsItems = [
     { id: 1, title: t('settings_subscriptions'), icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50', action: () => setActiveModal('wallet') },
@@ -369,7 +380,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
 
       {/* Profile Section */}
       <div 
-        onClick={onProfileClick}
+        onClick={handleProfileSectionClick}
         className="flex items-center gap-4 px-5 py-6 bg-white cursor-pointer hover:bg-gray-50 transition-colors active:bg-gray-100"
       >
         <div className="relative">

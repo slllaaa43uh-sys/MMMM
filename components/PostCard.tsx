@@ -7,10 +7,12 @@ import {
   MessageCircle, Share2, MoreHorizontal, ThumbsUp, 
   X, EyeOff, Link, Flag, Send, Trash2, Copy, Repeat, 
   Bookmark, Phone, Mail, Loader2, ArrowRight, CornerDownLeft, Heart, ChevronDown, Star, Tag, Minus, Play,
-  CheckCircle, Clock, Briefcase, Volume2, VolumeX, Languages, Settings, Check, Image as ImageIcon, AlertCircle, WifiOff, Search, Zap
+  CheckCircle, Clock, Briefcase, Volume2, VolumeX, Languages, Settings, Check, Image as ImageIcon, AlertCircle, WifiOff, Search, Zap, Building2, MapPin,
+  CarFront, Shield, ChefHat, Calculator, HardHat, Stethoscope, Hammer, PenTool, ShoppingBag, Code, Palette, GraduationCap, FolderKanban, Coffee, Bike, Scissors, Sprout
 } from 'lucide-react';
 import Avatar from './Avatar';
 import MediaGrid from './MediaGrid';
+import Logo from './Logo'; // Added Logo Import
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
 
@@ -63,6 +65,53 @@ const TARGET_LANGUAGES = [
   { code: "fa", label: "فارسی" }, 
 ];
 
+const DARK_GRADIENTS = [
+  'bg-gradient-to-br from-[#1e293b] to-[#0f172a]', // Slate
+  'bg-gradient-to-br from-[#312e81] to-[#1e1b4b]', // Indigo
+  'bg-gradient-to-br from-[#881337] to-[#4c0519]', // Rose
+  'bg-gradient-to-br from-[#064e3b] to-[#022c22]', // Emerald
+  'bg-gradient-to-br from-[#7c2d12] to-[#451a03]', // Orange/Brown
+  'bg-gradient-to-br from-[#111827] to-[#000000]', // Gray/Black
+];
+
+const getGradientClass = (id: string) => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % DARK_GRADIENTS.length;
+    return DARK_GRADIENTS[index];
+};
+
+// Helper to get Icon based on category name
+const getCategoryIcon = (categoryName: string | undefined) => {
+    if (!categoryName) return Building2;
+    const lowerName = categoryName.toLowerCase();
+    
+    if (lowerName.includes('سائق') || lowerName.includes('driver')) return CarFront;
+    if (lowerName.includes('أمن') || lowerName.includes('security')) return Shield;
+    if (lowerName.includes('طباخ') || lowerName.includes('chef')) return ChefHat;
+    if (lowerName.includes('محاسب') || lowerName.includes('accountant')) return Calculator;
+    if (lowerName.includes('مهندس') || lowerName.includes('engineer')) return HardHat;
+    if (lowerName.includes('طبيب') || lowerName.includes('ممرض') || lowerName.includes('doctor')) return Stethoscope;
+    if (lowerName.includes('نجار') || lowerName.includes('carpenter')) return Hammer;
+    if (lowerName.includes('كاتب') || lowerName.includes('writer')) return PenTool;
+    if (lowerName.includes('كهربائي') || lowerName.includes('electrician')) return Zap;
+    if (lowerName.includes('بائع') || lowerName.includes('sales')) return ShoppingBag;
+    if (lowerName.includes('مبرمج') || lowerName.includes('developer')) return Code;
+    if (lowerName.includes('مصمم') || lowerName.includes('designer')) return Palette;
+    if (lowerName.includes('مترجم') || lowerName.includes('translator')) return Languages;
+    if (lowerName.includes('مدرس') || lowerName.includes('tutor')) return GraduationCap;
+    if (lowerName.includes('مدير') || lowerName.includes('manager')) return FolderKanban;
+    if (lowerName.includes('خدمة') || lowerName.includes('support')) return Phone;
+    if (lowerName.includes('طعام') || lowerName.includes('waiter')) return Coffee;
+    if (lowerName.includes('توصيل') || lowerName.includes('delivery')) return Bike;
+    if (lowerName.includes('حلاق') || lowerName.includes('barber')) return Scissors;
+    if (lowerName.includes('مزارع') || lowerName.includes('farmer')) return Sprout;
+    
+    return Building2; // Default
+};
+
 const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, onReport, onProfileClick, isActive = true }) => {
   const { t, language, translationTarget, setTranslationTarget } = useLanguage();
   const currentUserId = localStorage.getItem('userId');
@@ -78,7 +127,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   
-  const [isImageLoaded, setIsImageLoaded] = useState(false); // Default to false
+  const [isImageLoaded, setIsImageLoaded] = useState(false); 
   const [imageError, setImageError] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -100,9 +149,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   
-  // Replying Logic
-  const [replyingTo, setReplyingTo] = useState<Comment | null>(null); // Actual Parent Comment (for API ID)
-  const [replyingToUser, setReplyingToUser] = useState<{ name: string } | null>(null); // User being replied to (for Tagging)
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null); 
+  const [replyingToUser, setReplyingToUser] = useState<{ name: string } | null>(null); 
   
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
 
@@ -119,28 +167,24 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [isMuted, setIsMuted] = useState(true); 
   const [isPlaying, setIsPlaying] = useState(false); 
 
+  // The requested WhatsApp message
+  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+
   // --- Dynamic Time & Location Calculation ---
   const getDynamicTime = () => {
       if (!post.createdAt) return post.timeAgo; 
-      
       const date = new Date(post.createdAt);
       const now = new Date();
       const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
       if (seconds < 60) return language === 'ar' ? 'الآن' : 'Just now';
-      
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return language === 'ar' ? `${minutes} د` : `${minutes}m`;
-      
       const hours = Math.floor(minutes / 60);
       if (hours < 24) return language === 'ar' ? `${hours} س` : `${hours}h`;
-      
       const days = Math.floor(hours / 24);
       if (days < 30) return language === 'ar' ? `${days} يوم` : `${days}d`;
-      
       const months = Math.floor(days / 30);
       if (months < 12) return language === 'ar' ? `${months} شهر` : `${months}mo`;
-      
       const years = Math.floor(months / 12);
       return language === 'ar' ? `${years} سنة` : `${years}y`;
   };
@@ -167,7 +211,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
       const date = new Date(dateStr);
       const now = new Date();
       const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
       if (seconds < 60) return 'الآن';
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) return `${minutes} د`;
@@ -357,7 +400,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     if (!commentText.trim()) return;
     const token = localStorage.getItem('token');
     
-    // Prefix text with mention based on replyingToUser (Visual) or replyingTo (Logic Parent)
     const mentionName = replyingToUser?.name || replyingTo?.user.name;
     const textToSend = replyingTo && mentionName
         ? `@${mentionName} ${commentText}`
@@ -426,9 +468,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   };
 
   const handleCommentLike = async (commentId: string, replyId?: string) => {
-    // Correctly update local state
     setComments(prev => prev.map(c => {
-        // If updating a reply inside this comment (replyId passed is the Parent ID)
         if (replyId && c._id === replyId) {
              return {
                  ...c,
@@ -441,7 +481,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                  })
              };
         }
-        // If updating this comment itself
         if (!replyId && c._id === commentId) {
              const newLiked = !c.isLiked;
              return { ...c, isLiked: newLiked, likes: newLiked ? c.likes + 1 : Math.max(0, c.likes - 1) };
@@ -563,105 +602,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
       } catch (error) { alert("Failed"); } finally { setIsTranslating(false); }
   };
 
-  const renderPostContent = (p: Post, isPreview = false) => (
-      <>
-        {p.content && (
-            <div className="px-4 mb-2">
-                <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap dir-auto text-start">
-                    {!isPreview && isTranslated && translatedText ? translatedText : p.content}
-                </p>
-                {!isPreview && (
-                    <div className="flex items-center justify-between mt-2">
-                        <button onClick={handleTranslate} disabled={isTranslating} className="text-blue-600 text-[10px] font-bold flex items-center gap-1 hover:underline disabled:opacity-50">
-                            {isTranslating ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
-                            {isTranslating ? t('translating') : (isTranslated ? t('show_original') : t('translate_post'))}
-                        </button>
-                        <button onClick={() => setIsTranslationSheetOpen(true)} className="text-gray-400 p-1 hover:bg-gray-100 rounded-full"><Settings size={12} /></button>
-                    </div>
-                )}
-            </div>
-        )}
-
-        {(() => {
-            const singleVideoUrl = (p.media?.length === 1 && p.media[0].type === 'video') ? p.media[0].url : (p.image && p.image.match(/\.(mp4|webm|mov|avi)$/i) ? p.image : null);
-
-            if (singleVideoUrl) {
-                return (
-                  <div onClick={togglePlay} className="relative mb-3 w-full aspect-square overflow-hidden bg-black border border-gray-100 dark:border-gray-800 group cursor-pointer">
-                    {!isVideoReady && !videoError && <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-100 dark:bg-gray-900"></div>}
-                    {videoError && <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 text-gray-400 z-30"><AlertCircle size={32} /><span className="text-xs mt-2 font-medium">فشل تحميل الفيديو</span></div>}
-                    <video 
-                        key={p.id} 
-                        ref={videoRef} 
-                        src={singleVideoUrl} 
-                        playsInline 
-                        loop 
-                        muted={isMuted} 
-                        className={`w-full h-full object-cover transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`} 
-                        onPlaying={handleVideoPlaying} 
-                        onPause={() => setIsPlaying(false)} 
-                        onError={() => setVideoError(true)} 
-                    />
-                    {!isPlaying && isVideoReady && !videoError && <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none bg-black/20"><div className="w-14 h-14 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-lg"><Play size={28} className="text-white fill-white ml-1" /></div></div>}
-                    {isVideoReady && !videoError && <button onClick={toggleMute} className="absolute bottom-4 left-4 z-30 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-all backdrop-blur-sm shadow-sm">{isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>}
-                  </div>
-                );
-            } 
-            
-            if (p.media && p.media.length > 0) {
-                return <div className="mb-3"><MediaGrid media={p.media} maxDisplay={3} variant={variant} /></div>;
-            }
-            
-            if (p.image) {
-                const containerClass = variant === 'feed'
-                    ? "relative mb-3 w-full aspect-square overflow-hidden rounded-lg bg-gray-100"
-                    : "relative mb-3 w-full aspect-square overflow-hidden bg-gray-100 border border-gray-100 rounded-lg";
-
-                return (
-                  <div className={containerClass}>
-                    {!isImageLoaded && !imageError && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
-                            <ImageIcon className="text-gray-300 animate-pulse" size={40} />
-                        </div>
-                    )}
-                    {imageError && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 text-gray-400 z-20">
-                            <WifiOff size={32} className="opacity-50 mb-2" />
-                            <span className="text-[10px] font-medium opacity-60">الصورة غير متاحة</span>
-                        </div>
-                    )}
-                    <img 
-                        src={p.image} 
-                        alt="Post content" 
-                        className={`w-full h-full object-cover transition-opacity duration-300 ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                        onLoad={() => setIsImageLoaded(true)}
-                        onError={() => { setImageError(true); setIsImageLoaded(false); }}
-                        decoding="async"
-                        loading="lazy"
-                    />
-                  </div>
-                );
-            }
-            return null;
-        })()}
-      </>
-  );
-
-  const renderSharedPost = (original: Post) => (
-      <div className="mx-4 mb-3 border border-gray-200 rounded-xl overflow-hidden bg-white">
-          <div className="p-3 flex items-center gap-2 bg-gray-50 border-b border-gray-100">
-              <Avatar name={original.user.name} src={original.user.avatar} className="w-8 h-8" textClassName="text-xs" />
-              <div className="flex flex-col"><span className="font-bold text-xs text-gray-900">{original.user.name}</span><span className="text-[10px] text-gray-500">{original.timeAgo}</span></div>
-          </div>
-          {renderPostContent(original)}
-      </div>
-  );
-
-  const filteredLanguages = TARGET_LANGUAGES.filter(lang => 
-    lang.label.toLowerCase().includes(langSearch.toLowerCase()) ||
-    lang.code.toLowerCase().includes(langSearch.toLowerCase())
-  );
-
   if (!isVisible) return null;
 
   const handleHidePost = async () => {
@@ -687,7 +627,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     } catch (e) { setIsDeletePostModalOpen(false); } finally { setIsDeletingPost(false); }
   };
 
-  const handleReportPost = () => { if (onReport) { onReport('post', post.id, post.user.name); setIsMenuOpen(false); } };
+  const handleReportPost = () => { 
+    if (onReport) { 
+        // FIX: Send _id if available, fallback to id
+        onReport('post', post._id || post.id, post.user.name); 
+        setIsMenuOpen(false); 
+    } 
+  };
+  
   const handleContactClick = () => { setIsMenuOpen(false); setIsContactOpen(true); };
   const handleTouchStart = (comment: Comment) => { longPressTimerRef.current = setTimeout(() => { setActiveCommentAction(comment); }, 600); };
   const handleTouchEnd = () => { if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } };
@@ -702,53 +649,198 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const hasContactInfo = (post.contactPhone && post.contactPhone.trim().length > 0) || 
                          (post.contactEmail && post.contactEmail.trim().length > 0);
 
+  const filteredLanguages = TARGET_LANGUAGES.filter(lang => 
+    lang.label.toLowerCase().includes(langSearch.toLowerCase()) ||
+    lang.code.toLowerCase().includes(langSearch.toLowerCase())
+  );
+
+  // Check if post has visual media
+  const hasMedia = !!(post.image || (post.media && post.media.length > 0 && (post.media[0].type === 'image' || post.media[0].type === 'video')));
+  const mainMediaUrl = post.media && post.media.length > 0 ? post.media[0].url : post.image;
+  const isVideo = post.media && post.media.length > 0 && post.media[0].type === 'video';
+
+  // --- Dynamic Category/Title Logic ---
+  const displayTitle = post.category || post.title || t('app_name');
+  const HeaderIcon = getCategoryIcon(post.category || post.title);
+
   return (
-    <div className="mb-3">
-      <div className="bg-white shadow-sm py-4 relative">
-        {/* Post Header */}
-        <div className="px-4 flex justify-between items-start mb-3">
-          <div className="flex items-center gap-3">
-            <div className="relative cursor-pointer" onClick={handleAvatarClick}><Avatar name={post.user.name} src={post.user.avatar} className="w-10 h-10" /></div>
-            <div>
-              <div className="flex items-center gap-2"><h3 className="font-bold text-gray-900 text-sm cursor-pointer" onClick={handleAvatarClick}>{post.user.name}</h3>{post.originalPost && <span className="text-gray-400 text-xs flex items-center gap-1"><Repeat size={12} />{t('repost')}</span>}</div>
-              <div className="flex flex-col gap-0.5"><div className="flex items-center gap-1"><span className="text-xs text-gray-500">{displayTime}</span><span className="text-gray-300 text-[10px]">•</span><span className="text-xs text-gray-400">{displayLocation}</span></div></div>
+    <div className="mb-0">
+      <div className="bg-white shadow-sm border-b border-gray-100 relative group overflow-hidden">
+        
+        {/* 1. MEDIA HEADER (Unified Container) */}
+        <div className={`relative w-full ${hasMedia ? 'aspect-square md:aspect-video' : 'h-48'} overflow-hidden bg-gray-50 group`}>
+            
+            {/* Visual Content or Gradient */}
+            {hasMedia ? (
+                <>
+                    {isVideo ? (
+                        <video 
+                            ref={videoRef}
+                            src={mainMediaUrl} 
+                            playsInline 
+                            loop 
+                            muted={isMuted} 
+                            className="w-full h-full object-cover" 
+                            onClick={togglePlay}
+                        />
+                    ) : (
+                        <img 
+                            src={mainMediaUrl} 
+                            alt="Post Content" 
+                            className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                        />
+                    )}
+                    
+                    {/* Gradient Overlay for Text Readability */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 pointer-events-none transition-opacity duration-300"></div>
+                </>
+            ) : (
+                // Fallback Gradient if no media
+                <div className={`w-full h-full ${getGradientClass(post.id)} flex flex-col items-center justify-center p-6 text-center text-white relative`}>
+                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle,rgba(255,255,255,0.2)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
+                    <HeaderIcon className="w-12 h-12 mb-3 opacity-80" />
+                    <span className="font-bold text-lg leading-tight drop-shadow-md opacity-90 max-w-[80%]">
+                        {t(displayTitle)}
+                    </span>
+                </div>
+            )}
+
+            {/* OVERLAYS (Floating Elements) */}
+            
+            {/* Top Left: Avatar */}
+            <div className="absolute top-3 left-3 z-20" onClick={handleAvatarClick}>
+                <div className="p-1 bg-white/20 backdrop-blur-md rounded-xl shadow-lg border border-white/20 cursor-pointer transition-transform active:scale-95">
+                    <Avatar name={post.user.name} src={post.user.avatar} className="w-9 h-9 rounded-lg" textClassName="text-xs" />
+                </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setIsMenuOpen(true)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"><MoreHorizontal size={20} /></button>
-            <button onClick={handleHidePost} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
-          </div>
+
+            {/* Top Right: Menu */}
+            <div className="absolute top-3 right-3 z-20">
+                <button 
+                    onClick={() => setIsMenuOpen(true)} 
+                    className="p-2 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors border border-white/10"
+                >
+                    <MoreHorizontal size={18} />
+                </button>
+            </div>
+
+            {/* Bottom Right: Tools (Translate, Settings, Logo) */}
+            <div className="absolute right-3 bottom-3 flex flex-col gap-2 z-20">
+                <button 
+                    onClick={(e) => { e.stopPropagation(); handleTranslate(); }}
+                    className="p-2 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-blue-600 transition-colors shadow-sm border border-white/10"
+                >
+                    {isTranslating ? <Loader2 size={16} className="animate-spin" /> : <Languages size={16} />}
+                </button>
+                
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setIsTranslationSheetOpen(true); }}
+                    className="p-2 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-gray-700 transition-colors shadow-sm border border-white/10"
+                >
+                    <Settings size={16} />
+                </button>
+
+                <div className="p-2 bg-black/30 backdrop-blur-md rounded-full text-white shadow-sm border border-white/20">
+                    <Logo className="w-4 h-4" />
+                </div>
+            </div>
+
+            {/* Bottom Left: Badges */}
+            <div className="absolute bottom-3 left-3 flex flex-col gap-2 z-20 items-start">
+                {post.specialTag && (
+                    <span className="bg-red-600 text-white text-[10px] px-2 py-1 rounded-lg font-bold shadow-sm flex items-center gap-1 backdrop-blur-sm bg-opacity-90">
+                        <Zap size={10} fill="currentColor" /> {t(post.specialTag)}
+                    </span>
+                )}
+                {post.isFeatured && (
+                    <span className="bg-amber-500 text-white text-[10px] px-2 py-1 rounded-lg font-bold shadow-sm flex items-center gap-1 backdrop-blur-sm bg-opacity-90">
+                        <Star size={10} fill="currentColor" /> {t('post_premium')}
+                    </span>
+                )}
+            </div>
+
+            {/* Center Play Button (Video Only) */}
+            {isVideo && !isPlaying && isVideoReady && !videoError && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                    <div className="w-14 h-14 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-lg animate-in zoom-in">
+                        <Play size={28} className="text-white fill-white ml-1" />
+                    </div>
+                </div>
+            )}
         </div>
 
-        {/* Badges/Tags (Updated with Urgent Tag) */}
-        {(post.title || post.category || post.isFeatured || post.specialTag) && (
-          <div className="px-4 mb-2 flex flex-wrap items-center gap-2">
-            {post.isFeatured && <span className="relative bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-amber-200 overflow-hidden"><span className="absolute inset-0 bg-white/40 animate-pulse"></span><span className="relative flex items-center gap-1"><Star size={10} className="fill-amber-700" /> {t('post_premium')}</span></span>}
-            {post.specialTag && <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-red-200"><Zap size={10} className="fill-red-700" /> {t(post.specialTag)}</span>}
-            {post.title && <h4 className="font-bold text-sm text-blue-600 leading-tight">{t(post.title)}</h4>}
-            {post.category && <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-medium border border-gray-200 flex items-center gap-1"><Tag size={10} className="text-gray-400" />{t(post.category)}</span>}
-          </div>
-        )}
+        {/* 2. BODY CONTENT */}
+        <div className="p-4 pt-3 relative">
+            {/* Header Info */}
+            <div className="flex justify-between items-start mb-2">
+                <div className="flex flex-col">
+                    <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1 flex items-center gap-2" onClick={handleAvatarClick}>
+                        {post.user.name}
+                        {jobStatus === 'hired' && <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-green-200">{t('status_hired')}</span>}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                        <span className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-md">
+                            <MapPin size={10} /> {displayLocation}
+                        </span>
+                        <span className="flex items-center gap-1 text-gray-400">
+                            <Clock size={10} /> {displayTime}
+                        </span>
+                    </div>
+                </div>
+            </div>
 
-        {jobStatus === 'hired' && <div className="px-4 mb-2"><span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 w-fit"><CheckCircle size={12} />{t('status_hired')}</span></div>}
-        {jobStatus === 'negotiating' && <div className="px-4 mb-2"><span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 w-fit"><Clock size={12} />{t('status_negotiating')}</span></div>}
+            {/* Post Text */}
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap dir-auto text-start mb-3">
+                {isTranslated && translatedText ? translatedText : post.content}
+            </p>
 
-        {post.originalPost ? <>{<div className="px-4 mb-2"><p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap dir-auto text-start">{post.content}</p></div>}{renderSharedPost(post.originalPost)}</> : renderPostContent(post)}
-
-        {/* Stats Footer */}
-        <div className="px-4 flex justify-between items-center pb-2 border-b border-gray-100 text-xs text-gray-500 mb-2">
-          <div className="flex items-center gap-1"><div className={`p-0.5 rounded-full transition-all duration-300 ${optimisticLiked ? 'bg-blue-500 scale-110' : 'bg-gray-400'}`}><ThumbsUp size={10} className="text-white fill-current" /></div><span key={likesCount} className="animate-in fade-in zoom-in duration-200 font-bold text-gray-600">{likesCount}</span></div>
-          <div className="flex gap-3"><button onClick={handleOpenComments} className="hover:underline">{commentsCount} {t('comment')}</button><span>{post.repostsCount || 0} {t('share')}</span></div>
+            {/* Stats Divider */}
+            <div className="flex justify-between items-center py-2 border-t border-gray-100 text-xs text-gray-500 mt-2">
+                <div className="flex items-center gap-1">
+                    <div className={`p-1 rounded-full ${optimisticLiked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                        <ThumbsUp size={10} className={optimisticLiked ? "fill-current" : ""} />
+                    </div>
+                    <span className="font-bold">{likesCount}</span>
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={handleOpenComments} className="hover:text-gray-800 transition-colors">{commentsCount} {t('comment')}</button>
+                    <span>{post.repostsCount || 0} {t('share')}</span>
+                </div>
+            </div>
         </div>
 
-        <div className="px-4 flex justify-between items-center">
-          <button onClick={handleLike} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all active:scale-95 ${optimisticLiked ? 'text-blue-600' : 'text-gray-600'}`}><ThumbsUp size={18} className={`transition-transform duration-200 ${optimisticLiked ? 'fill-current scale-110' : ''}`} /><span className="text-sm font-medium">{optimisticLiked ? t('liked') : t('like')}</span></button>
-          <button onClick={handleOpenComments} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"><MessageCircle size={18} /><span className="text-sm font-medium">{t('comment')}</span></button>
-          <button onClick={handleRepostClick} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"><Repeat size={18} /><span className="text-sm font-medium">{t('repost')}</span></button>
+        {/* 3. ACTIONS FOOTER */}
+        <div className="px-2 pb-2 flex justify-between items-center gap-1">
+            <button 
+                onClick={handleLike} 
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all active:scale-95 ${optimisticLiked ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50 text-gray-600'}`}
+            >
+                <ThumbsUp size={18} className={`transition-transform duration-300 ${optimisticLiked ? 'fill-current scale-110' : ''}`} />
+                <span className="text-xs font-bold">{t('like')}</span>
+            </button>
+            
+            <button 
+                onClick={handleOpenComments} 
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors active:scale-95"
+            >
+                <MessageCircle size={18} />
+                <span className="text-xs font-bold">{t('comment')}</span>
+            </button>
+            
+            <button 
+                onClick={handleRepostClick} 
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors active:scale-95"
+            >
+                <Repeat size={18} />
+                <span className="text-xs font-bold">{t('repost')}</span>
+            </button>
         </div>
+
       </div>
 
-      {/* --- LANGUAGE SELECTION SHEET --- */}
+      {/* --- MODALS (Same as before) --- */}
+      {/* Language Sheet */}
       {isTranslationSheetOpen && createPortal(
         <div className="fixed inset-0 z-[10002] flex items-end justify-center">
             <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsTranslationSheetOpen(false)} />
@@ -757,7 +849,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                     <h3 className="font-bold text-gray-800">{t('translation_settings')}</h3>
                     <button type="button" onClick={() => setIsTranslationSheetOpen(false)} className="bg-gray-100 p-1 rounded-full"><X size={20} /></button>
                 </div>
-                
                 <div className="p-4 border-b border-gray-50">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -770,7 +861,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                         />
                     </div>
                 </div>
-
                 <div className="flex-1 overflow-y-auto p-4">
                     <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
                         <span className="text-xs text-gray-500 font-bold mb-2 block">{t('source_lang')}</span>
@@ -779,28 +869,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                     <div className="rounded-xl border border-gray-100 overflow-hidden">
                         <div className="bg-gray-50 p-3 border-b border-gray-100"><span className="text-xs text-gray-500 font-bold">{t('target_lang')}</span></div>
                         <div className="max-h-[400px] overflow-y-auto">
-                            {filteredLanguages.length > 0 ? (
-                                filteredLanguages.map((lang) => (
-                                    <button 
-                                        type="button"
-                                        key={lang.code} 
-                                        onClick={(e) => { 
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setTranslationTarget(lang.code); 
-                                            setIsTranslationSheetOpen(false); 
-                                        }} 
-                                        className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors text-start ${translationTarget === lang.code ? 'bg-blue-50' : 'bg-white'}`}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-bold text-sm ${translationTarget === lang.code ? 'text-blue-700' : 'text-gray-700'}`}>{lang.label}</span>
-                                        </div>
-                                        {translationTarget === lang.code && <Check size={18} className="text-blue-600" />}
-                                    </button>
-                                ))
-                            ) : (
-                                <div className="p-4 text-center text-gray-400 text-sm">{t('search_no_results')}</div>
-                            )}
+                            {TARGET_LANGUAGES.filter(l => l.label.toLowerCase().includes(langSearch.toLowerCase()) || l.code.includes(langSearch.toLowerCase())).map((lang) => (
+                                <button key={lang.code} onClick={() => { setTranslationTarget(lang.code); setIsTranslationSheetOpen(false); }} className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors text-start ${translationTarget === lang.code ? 'bg-blue-50' : 'bg-white'}`}><span className={`font-bold text-sm ${translationTarget === lang.code ? 'text-blue-700' : 'text-gray-700'}`}>{lang.label}</span>{translationTarget === lang.code && <Check size={18} className="text-blue-600" />}</button>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -808,144 +879,145 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
         </div>, document.body
       )}
 
-      {/* --- REPOST PAGE (Full Screen) --- */}
+      {/* Repost Modal */}
       {isRepostModalOpen && createPortal(
         <div className="fixed inset-0 z-[20000] bg-white flex flex-col animate-in slide-in-from-bottom duration-300">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between pt-safe bg-white z-10 sticky top-0">
-                <button 
-                    onClick={() => { setIsRepostModalOpen(false); setRepostText(''); }} 
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                    <X size={24} className="text-gray-700" />
-                </button>
+                <button onClick={() => { setIsRepostModalOpen(false); setRepostText(''); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={24} className="text-gray-700" /></button>
                 <span className="font-bold text-lg text-gray-800">{t('repost')}</span>
-                <button 
-                    onClick={handleRepostSubmit} 
-                    disabled={isReposting}
-                    className="px-5 py-1.5 bg-green-600 text-white rounded-full font-bold text-sm shadow-md shadow-green-200 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                    {isReposting && <Loader2 size={14} className="animate-spin" />}
-                    {t('repost_button')}
-                </button>
+                <button onClick={handleRepostSubmit} disabled={isReposting} className="px-5 py-1.5 bg-green-600 text-white rounded-full font-bold text-sm shadow-md shadow-green-200 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">{isReposting && <Loader2 size={14} className="animate-spin" />}{t('repost_button')}</button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-4 pb-10">
                 <div className="flex gap-3 mb-6">
-                    <div className="flex-shrink-0">
-                        <Avatar 
-                            name={localStorage.getItem('userName') || 'أنا'} 
-                            src={localStorage.getItem('userAvatar') ? (localStorage.getItem('userAvatar')!.startsWith('http') ? localStorage.getItem('userAvatar') : `${API_BASE_URL}${localStorage.getItem('userAvatar')}`) : null} 
-                            className="w-10 h-10 border border-gray-100" 
-                        />
-                    </div>
-                    <textarea 
-                        value={repostText}
-                        onChange={(e) => setRepostText(e.target.value)}
-                        placeholder={t('write_thought')}
-                        className="w-full h-24 p-2 text-base outline-none resize-none placeholder:text-gray-400 dir-auto text-start bg-transparent"
-                        autoFocus
-                    />
+                    <div className="flex-shrink-0"><Avatar name={localStorage.getItem('userName') || 'أنا'} src={localStorage.getItem('userAvatar') ? (localStorage.getItem('userAvatar')!.startsWith('http') ? localStorage.getItem('userAvatar') : `${API_BASE_URL}${localStorage.getItem('userAvatar')}`) : null} className="w-10 h-10 border border-gray-100" /></div>
+                    <textarea value={repostText} onChange={(e) => setRepostText(e.target.value)} placeholder={t('write_thought')} className="w-full h-24 p-2 text-base outline-none resize-none placeholder:text-gray-400 dir-auto text-start bg-transparent" autoFocus />
                 </div>
-
                 <div className="border border-gray-200 rounded-xl overflow-hidden mx-1 shadow-sm">
                     <div className="p-3 bg-gray-50 flex items-center gap-2 border-b border-gray-100">
-                        <Avatar 
-                            name={contentToRepost.user.name} 
-                            src={contentToRepost.user.avatar} 
-                            className="w-8 h-8" 
-                            textClassName="text-xs" 
-                        />
-                        <div className="flex-1 min-w-0">
-                            <span className="font-bold text-xs text-gray-900 truncate block">{contentToRepost.user.name}</span>
-                            <span className="text-[10px] text-gray-500">{contentToRepost.timeAgo}</span>
-                        </div>
+                        <Avatar name={contentToRepost.user.name} src={contentToRepost.user.avatar} className="w-8 h-8" textClassName="text-xs" />
+                        <div className="flex-1 min-w-0"><span className="font-bold text-xs text-gray-900 truncate block">{contentToRepost.user.name}</span><span className="text-[10px] text-gray-500">{contentToRepost.timeAgo}</span></div>
                     </div>
-                    <div className="bg-white">
-                        {renderPostContent(contentToRepost, true)}
+                    {/* Reuse Post Content Render for Repost Preview */}
+                    {/* Only content is needed here, simplified logic */}
+                    <div className="bg-white p-3">
+                        <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{contentToRepost.content}</p>
+                        {contentToRepost.image && <img src={contentToRepost.image} alt="repost" className="w-full h-40 object-cover rounded-lg mt-2" />}
                     </div>
                 </div>
             </div>
         </div>, document.body
       )}
 
-      {/* --- MENU MODAL (OPTIONS) --- */}
+      {/* Menu Modal */}
       {isMenuOpen && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsMenuOpen(false)} />
           <div className="bg-white w-full max-w-md rounded-t-3xl relative z-10 animate-in slide-in-from-bottom duration-300 pb-safe shadow-2xl overflow-hidden">
-             <div className="flex justify-center pt-3 pb-2" onClick={() => setIsMenuOpen(false)}>
-               <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
-             </div>
+             <div className="flex justify-center pt-3 pb-2" onClick={() => setIsMenuOpen(false)}><div className="w-12 h-1.5 bg-gray-300 rounded-full" /></div>
              <div className="p-5 pt-2 space-y-2">
-                <button onClick={() => { handleNativeShare(); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100">
-                   <Share2 size={22} className="text-blue-600" />
-                   <span className="font-bold">{t('share')}</span>
-                </button>
-                <button onClick={() => { navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`); alert(t('copy_link') + " (تم النسخ)"); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100">
-                   <Link size={22} className="text-purple-600" />
-                   <span className="font-bold">{t('copy_link')}</span>
-                </button>
-
+                <button onClick={() => { handleNativeShare(); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100"><Share2 size={22} className="text-blue-600" /><span className="font-bold">{t('share')}</span></button>
+                <button onClick={() => { navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`); alert(t('copy_link') + " (تم النسخ)"); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100"><Link size={22} className="text-purple-600" /><span className="font-bold">{t('copy_link')}</span></button>
                 {post.user._id === currentUserId ? (
                    <>
                      <div className="bg-gray-50 rounded-2xl p-2 mb-2">
-                         <button onClick={() => handleJobStatus('hired')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-green-700">
-                            <div className="p-2 bg-green-100 rounded-full"><CheckCircle size={20} /></div>
-                            <span className="font-bold text-sm">{t('status_mark_hired')}</span>
-                            {jobStatus === 'hired' && <Check size={16} className="ml-auto" />}
-                         </button>
-                         <button onClick={() => handleJobStatus('negotiating')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-yellow-700">
-                            <div className="p-2 bg-yellow-100 rounded-full"><Clock size={20} /></div>
-                            <span className="font-bold text-sm">{t('status_mark_negotiating')}</span>
-                            {jobStatus === 'negotiating' && <Check size={16} className="ml-auto" />}
-                         </button>
-                         {(jobStatus === 'hired' || jobStatus === 'negotiating') && (
-                             <button onClick={() => handleJobStatus('open')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-blue-700">
-                                <div className="p-2 bg-blue-100 rounded-full"><Briefcase size={20} /></div>
-                                <span className="font-bold text-sm">{t('status_reopen')}</span>
-                             </button>
-                         )}
+                         <button onClick={() => handleJobStatus('hired')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-green-700"><div className="p-2 bg-green-100 rounded-full"><CheckCircle size={20} /></div><span className="font-bold text-sm">{t('status_mark_hired')}</span>{jobStatus === 'hired' && <Check size={16} className="ml-auto" />}</button>
+                         <button onClick={() => handleJobStatus('negotiating')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-yellow-700"><div className="p-2 bg-yellow-100 rounded-full"><Clock size={20} /></div><span className="font-bold text-sm">{t('status_mark_negotiating')}</span>{jobStatus === 'negotiating' && <Check size={16} className="ml-auto" />}</button>
+                         {(jobStatus === 'hired' || jobStatus === 'negotiating') && (<button onClick={() => handleJobStatus('open')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-blue-700"><div className="p-2 bg-blue-100 rounded-full"><Briefcase size={20} /></div><span className="font-bold text-sm">{t('status_reopen')}</span></button>)}
                      </div>
-                     <button onClick={handleDeletePost} className="w-full flex items-center gap-3 p-4 bg-red-50 hover:bg-red-100 rounded-2xl transition-colors text-red-600 mb-2">
-                        <Trash2 size={22} />
-                        <span className="font-bold">{t('delete')}</span>
-                     </button>
+                     <button onClick={handleDeletePost} className="w-full flex items-center gap-3 p-4 bg-red-50 hover:bg-red-100 rounded-2xl transition-colors text-red-600 mb-2"><Trash2 size={22} /><span className="font-bold">{t('delete')}</span></button>
                    </>
                 ) : (
                    <>
-                     {hasContactInfo && jobStatus === 'open' && (
-                        <button onClick={handleContactClick} className="w-full flex items-center gap-3 p-4 hover:bg-blue-50 rounded-2xl transition-colors text-blue-600 border border-gray-100 mb-2">
-                            <Phone size={22} />
-                            <span className="font-bold">{t('contact_header')}</span>
-                        </button>
-                     )}
-                     <button onClick={handleHidePost} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100">
-                        <EyeOff size={22} />
-                        <span className="font-bold">{t('post_hide')}</span>
-                     </button>
-                     <button onClick={handleReportPost} className="w-full flex items-center gap-3 p-4 hover:bg-red-50 rounded-2xl transition-colors text-red-600 border border-gray-100">
-                        <Flag size={22} />
-                        <span className="font-bold">{t('report')}</span>
-                     </button>
+                     {hasContactInfo && jobStatus === 'open' && (<button onClick={handleContactClick} className="w-full flex items-center gap-3 p-4 hover:bg-blue-50 rounded-2xl transition-colors text-blue-600 border border-gray-100 mb-2"><Phone size={22} /><span className="font-bold">{t('contact_header')}</span></button>)}
+                     <button onClick={handleHidePost} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100"><EyeOff size={22} /><span className="font-bold">{t('post_hide')}</span></button>
+                     <button onClick={handleReportPost} className="w-full flex items-center gap-3 p-4 hover:bg-red-50 rounded-2xl transition-colors text-red-600 border border-gray-100"><Flag size={22} /><span className="font-bold">{t('report')}</span></button>
                    </>
                 )}
-                
-                <button onClick={() => setIsMenuOpen(false)} className="w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-800 transition-colors">
-                   {t('cancel')}
-                </button>
+                <button onClick={() => setIsMenuOpen(false)} className="w-full p-4 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-800 transition-colors">{t('cancel')}</button>
              </div>
           </div>
         </div>, document.body
       )}
 
+      {/* Comments Modal (Same as before) */}
+      {isCommentsOpen && createPortal(
+         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+            <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsCommentsOpen(false)} />
+            <div className="bg-white w-full max-w-md h-[65vh] rounded-t-2xl sm:rounded-2xl relative z-10 animate-slide-up-fast shadow-2xl flex flex-col overflow-hidden">
+               <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white z-20"><div className="w-8"></div><h3 className="font-bold text-gray-800">{t('comment')}</h3><button onClick={() => setIsCommentsOpen(false)} className="bg-gray-100 p-1 rounded-full hover:bg-gray-200"><X size={20} className="text-gray-600" /></button></div>
+               <div className="flex-1 overflow-y-auto no-scrollbar p-4">
+                 {isLoadingComments && comments.length === 0 ? (<div className="flex flex-col items-center justify-center h-40 gap-2"><Loader2 size={30} className="text-blue-600 animate-spin" /></div>) : comments.length > 0 ? (
+                   comments.map((comment) => (
+                      <div key={comment._id} className="mb-4">
+                          <div className="flex gap-3">
+                              <Avatar name={comment.user.name} src={comment.user.avatar ? (comment.user.avatar.startsWith('http') ? comment.user.avatar : `${API_BASE_URL}${comment.user.avatar}`) : null} className="w-9 h-9" textClassName="text-sm" />
+                              <div className="flex-1">
+                                  <div className="bg-gray-100 p-3 rounded-2xl rounded-tr-none inline-block"><h4 className="font-bold text-xs text-gray-900 mb-1">{comment.user.name}</h4><p className="text-sm text-gray-800 whitespace-pre-wrap">{comment.text}</p></div>
+                                  <div className="flex items-center gap-3 mt-1 px-1"><span className="text-[10px] text-gray-400">{getCommentRelativeTime(comment.createdAt)}</span><button onClick={() => { setReplyingTo(comment); setReplyingToUser(comment.user); inputRef.current?.focus(); }} className="text-[11px] font-bold text-gray-500 hover:text-gray-800">{t('reply')}</button></div>
+                              </div>
+                              <div className="pt-2 flex flex-col items-center gap-2">
+                                  <button onClick={() => handleCommentLike(comment._id)} className="p-1"><Heart size={14} className={comment.isLiked ? "text-red-500 fill-red-500" : "text-gray-400"} /></button>
+                                  <button onClick={() => setActiveCommentAction(comment)} className="p-1 text-gray-400 hover:text-gray-600"><MoreHorizontal size={14} /></button>
+                              </div>
+                          </div>
+                          {comment.replies && comment.replies.length > 0 && expandedComments.has(comment._id) && (
+                              <div className="mr-10 mt-2 space-y-3 pl-2 border-r-2 border-gray-100">
+                                  {comment.replies.map(reply => (
+                                      <div key={reply._id} className="flex gap-2">
+                                          <Avatar name={reply.user.name} src={reply.user.avatar ? (reply.user.avatar.startsWith('http') ? reply.user.avatar : `${API_BASE_URL}${reply.user.avatar}`) : null} className="w-7 h-7" textClassName="text-xs" />
+                                          <div className="flex-1">
+                                              <div className="bg-gray-50 p-2 rounded-xl rounded-tr-none inline-block"><h4 className="font-bold text-[10px] text-gray-900 mb-0.5">{reply.user.name}</h4><p className="text-xs text-gray-800">{reply.text}</p></div>
+                                              <div className="flex items-center gap-2 mt-0.5 px-1"><span className="text-[9px] text-gray-400">{getCommentRelativeTime(reply.createdAt)}</span><button onClick={() => { setReplyingTo(comment); setReplyingToUser(reply.user); inputRef.current?.focus(); }} className="text-[9px] font-bold text-gray-500 hover:text-gray-700">{t('reply')}</button></div>
+                                          </div>
+                                          <div className="flex flex-col items-center gap-1 pt-1">
+                                              <button onClick={(e) => { e.stopPropagation(); handleCommentLike(reply._id, comment._id); }} className="p-0.5 active:scale-90 transition-transform"><Heart size={12} className={reply.isLiked ? "text-red-500 fill-red-500" : "text-gray-300"} /></button>
+                                              <button onClick={() => setActiveCommentAction(reply)} className="p-0.5 text-gray-300 hover:text-gray-500"><MoreHorizontal size={12} /></button>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                          {comment.replies && comment.replies.length > 0 && (
+                              <button onClick={() => toggleReplies(comment._id)} className="text-xs font-bold text-gray-500 mt-1 mr-12 flex items-center gap-1"><div className="w-4 h-[1px] bg-gray-300"></div>{expandedComments.has(comment._id) ? t('hide_replies') : `${t('view_replies')} (${comment.replies.length})`}</button>
+                          )}
+                      </div>
+                   ))
+                 ) : (<div className="flex flex-col items-center justify-center h-full min-h-[250px]"><div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4"><MessageCircle size={40} className="text-gray-300" strokeWidth={1} /></div><h3 className="text-gray-500 font-bold text-sm">{t('no_comments')}</h3></div>)}
+               </div>
+               <div className="p-3 border-t border-gray-100 bg-white pb-safe z-40 relative">
+                  {replyingTo && (<div className="flex items-center justify-between px-2 mb-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100"><div className="flex items-center gap-1"><CornerDownLeft size={12} /><span>{t('replying_to')} <span className="font-bold text-blue-600">{replyingToUser?.name || replyingTo.user.name}</span></span></div><button onClick={() => { setReplyingTo(null); setReplyingToUser(null); }} className="p-1 hover:bg-gray-200 rounded-full"><X size={12} /></button></div>)}
+                  <div className="flex items-center gap-2">
+                     <div className="w-8 h-8 flex-shrink-0"><Avatar name={localStorage.getItem('userName') || 'أنا'} src={localStorage.getItem('userAvatar') ? (localStorage.getItem('userAvatar')!.startsWith('http') ? localStorage.getItem('userAvatar') : `${API_BASE_URL}${localStorage.getItem('userAvatar')}`) : null} className="w-8 h-8" /></div>
+                     <div className="flex-1 bg-gray-100 rounded-full flex items-center px-4 py-2 h-10"><input ref={inputRef} type="text" value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }} placeholder={replyingTo ? t('reply_placeholder') : t('post_placeholder')} className="bg-transparent border-none outline-none w-full text-sm placeholder:text-gray-500 dir-auto text-start h-full" autoFocus={!!replyingTo} /></div>
+                     <button onClick={handleSendComment} disabled={!commentText.trim()} className={`h-10 w-10 flex items-center justify-center rounded-full transition-colors ${!commentText.trim() ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-50 bg-transparent'}`}><Send size={20} style={{ transform: language === 'en' ? 'scaleX(-1)' : 'none' }} /></button>
+                  </div>
+               </div>
+            </div>
+         </div>, document.body
+      )}
+
+      {/* Delete Post Modal */}
+      {isDeletePostModalOpen && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingPost && setIsDeletePostModalOpen(false)} />
+            <div className="bg-white rounded-2xl w-full max-w-sm relative z-10 animate-in zoom-in-95 p-6 text-center">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 size={32} className="text-red-500" /></div>
+                <h3 className="font-bold text-xl mb-2">{t('delete')}؟</h3>
+                <p className="text-gray-500 text-sm mb-6">{t('post_delete_confirm')}</p>
+                <div className="flex gap-3">
+                    <button onClick={confirmDeletePost} disabled={isDeletingPost} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold flex justify-center items-center shadow-lg shadow-red-200">{isDeletingPost ? <Loader2 className="animate-spin" size={20} /> : t('yes')}</button>
+                    <button onClick={() => setIsDeletePostModalOpen(false)} disabled={isDeletingPost} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold">{t('no')}</button>
+                </div>
+            </div>
+        </div>, document.body
+      )}
+
+      {/* Share Modal */}
       {isShareOpen && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsShareOpen(false)} />
           <div className="bg-white w-full max-w-md rounded-t-2xl relative z-10 animate-slide-up-fast pb-safe shadow-2xl p-5">
-             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-gray-800 font-bold text-center flex-1">{t('share')}</h3>
-                <button onClick={() => setIsShareOpen(false)} className="bg-gray-100 p-1 rounded-full hover:bg-gray-200"><X size={20} className="text-gray-600" /></button>
-             </div>
+             <div className="flex justify-between items-center mb-6"><h3 className="text-gray-800 font-bold text-center flex-1">{t('share')}</h3><button onClick={() => setIsShareOpen(false)} className="bg-gray-100 p-1 rounded-full hover:bg-gray-200"><X size={20} className="text-gray-600" /></button></div>
              <div className="grid grid-cols-3 gap-4 mb-4">
                  <button onClick={handleNativeShare} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center group-hover:bg-blue-100 transition-colors"><Share2 size={24} className="text-blue-600" /></div><span className="text-xs text-gray-600 font-medium">{t('share')}</span></button>
                  <button onClick={handleRepostClick} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center group-hover:bg-green-100 transition-colors"><Repeat size={24} className="text-green-600" /></div><span className="text-xs text-gray-600 font-medium">{t('repost')}</span></button>
@@ -955,232 +1027,31 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
           </div>
         </div>, document.body
       )}
-      
-      {/* Comments Modal */}
-      {isCommentsOpen && createPortal(
-         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
-            <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={() => setIsCommentsOpen(false)} />
-            <div className="bg-white w-full max-w-md h-[65vh] rounded-t-2xl sm:rounded-2xl relative z-10 animate-slide-up-fast shadow-2xl flex flex-col overflow-hidden">
-               
-               <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white z-20">
-                   <div className="w-8"></div>
-                   <h3 className="font-bold text-gray-800">{t('comment')}</h3>
-                   <button onClick={() => setIsCommentsOpen(false)} className="bg-gray-100 p-1 rounded-full hover:bg-gray-200">
-                       <X size={20} className="text-gray-600" />
-                   </button>
-               </div>
 
-               <div className="flex-1 overflow-y-auto no-scrollbar p-4">
-                 {isLoadingComments && comments.length === 0 ? (
-                   <div className="flex flex-col items-center justify-center h-40 gap-2">
-                      <Loader2 size={30} className="text-blue-600 animate-spin" />
-                   </div>
-                 ) : comments.length > 0 ? (
-                   comments.map((comment) => (
-                      <div key={comment._id} className="mb-4">
-                          <div className="flex gap-3">
-                              <Avatar name={comment.user.name} src={comment.user.avatar ? (comment.user.avatar.startsWith('http') ? comment.user.avatar : `${API_BASE_URL}${comment.user.avatar}`) : null} className="w-9 h-9" textClassName="text-sm" />
-                              <div className="flex-1">
-                                  <div className="bg-gray-100 p-3 rounded-2xl rounded-tr-none inline-block">
-                                      <h4 className="font-bold text-xs text-gray-900 mb-1">{comment.user.name}</h4>
-                                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{comment.text}</p>
-                                  </div>
-                                  <div className="flex items-center gap-3 mt-1 px-1">
-                                      <span className="text-[10px] text-gray-400">{getCommentRelativeTime(comment.createdAt)}</span>
-                                      <button 
-                                        onClick={() => { setReplyingTo(comment); setReplyingToUser(comment.user); inputRef.current?.focus(); }} 
-                                        className="text-[11px] font-bold text-gray-500 hover:text-gray-800"
-                                      >
-                                        {t('reply')}
-                                      </button>
-                                  </div>
-                              </div>
-                              <div className="pt-2 flex flex-col items-center gap-2">
-                                  <button onClick={() => handleCommentLike(comment._id)} className="p-1">
-                                      <Heart size={14} className={comment.isLiked ? "text-red-500 fill-red-500" : "text-gray-400"} />
-                                  </button>
-                                  <button onClick={() => setActiveCommentAction(comment)} className="p-1 text-gray-400 hover:text-gray-600">
-                                      <MoreHorizontal size={14} />
-                                  </button>
-                              </div>
-                          </div>
-                          
-                          {/* Replies */}
-                          {comment.replies && comment.replies.length > 0 && expandedComments.has(comment._id) && (
-                              <div className="mr-10 mt-2 space-y-3 pl-2 border-r-2 border-gray-100">
-                                  {comment.replies.map(reply => (
-                                      <div key={reply._id} className="flex gap-2">
-                                          <Avatar name={reply.user.name} src={reply.user.avatar ? (reply.user.avatar.startsWith('http') ? reply.user.avatar : `${API_BASE_URL}${reply.user.avatar}`) : null} className="w-7 h-7" textClassName="text-xs" />
-                                          <div className="flex-1">
-                                              <div className="bg-gray-50 p-2 rounded-xl rounded-tr-none inline-block">
-                                                  <h4 className="font-bold text-[10px] text-gray-900 mb-0.5">{reply.user.name}</h4>
-                                                  <p className="text-xs text-gray-800">{reply.text}</p>
-                                              </div>
-                                              <div className="flex items-center gap-2 mt-0.5 px-1">
-                                                  <span className="text-[9px] text-gray-400">{getCommentRelativeTime(reply.createdAt)}</span>
-                                                  <button onClick={() => { setReplyingTo(comment); setReplyingToUser(reply.user); inputRef.current?.focus(); }} className="text-[9px] font-bold text-gray-500 hover:text-gray-700">{t('reply')}</button>
-                                              </div>
-                                          </div>
-                                          <div className="flex flex-col items-center gap-1 pt-1">
-                                              <button 
-                                                onClick={(e) => { e.stopPropagation(); handleCommentLike(reply._id, comment._id); }} 
-                                                className="p-0.5 active:scale-90 transition-transform"
-                                              >
-                                                  <Heart size={12} className={reply.isLiked ? "text-red-500 fill-red-500" : "text-gray-300"} />
-                                              </button>
-                                              <button onClick={() => setActiveCommentAction(reply)} className="p-0.5 text-gray-300 hover:text-gray-500">
-                                                  <MoreHorizontal size={12} />
-                                              </button>
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          )}
-                          
-                          {comment.replies && comment.replies.length > 0 && (
-                              <button onClick={() => toggleReplies(comment._id)} className="text-xs font-bold text-gray-500 mt-1 mr-12 flex items-center gap-1">
-                                  <div className="w-4 h-[1px] bg-gray-300"></div>
-                                  {expandedComments.has(comment._id) ? t('hide_replies') : `${t('view_replies')} (${comment.replies.length})`}
-                              </button>
-                          )}
-                      </div>
-                   ))
-                 ) : (
-                   <div className="flex flex-col items-center justify-center h-full min-h-[250px]">
-                     <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                        <MessageCircle size={40} className="text-gray-300" strokeWidth={1} />
-                     </div>
-                     <h3 className="text-gray-500 font-bold text-sm">{t('no_comments')}</h3>
-                   </div>
-                 )}
-               </div>
-
-               <div className="p-3 border-t border-gray-100 bg-white pb-safe z-40 relative">
-                  {replyingTo && (
-                        <div className="flex items-center justify-between px-2 mb-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                            <div className="flex items-center gap-1">
-                                <CornerDownLeft size={12} />
-                                <span>{t('replying_to')} <span className="font-bold text-blue-600">{replyingToUser?.name || replyingTo.user.name}</span></span>
-                            </div>
-                            <button onClick={() => { setReplyingTo(null); setReplyingToUser(null); }} className="p-1 hover:bg-gray-200 rounded-full"><X size={12} /></button>
-                        </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                     <div className="w-8 h-8 flex-shrink-0">
-                        <Avatar 
-                            name={localStorage.getItem('userName') || 'أنا'} 
-                            src={localStorage.getItem('userAvatar') ? (localStorage.getItem('userAvatar')!.startsWith('http') ? localStorage.getItem('userAvatar') : `${API_BASE_URL}${localStorage.getItem('userAvatar')}`) : null} 
-                            className="w-8 h-8" 
-                        />
-                     </div>
-                     <div className="flex-1 bg-gray-100 rounded-full flex items-center px-4 py-2 h-10">
-                        <input 
-                           ref={inputRef}
-                           type="text" 
-                           value={commentText}
-                           onChange={(e) => setCommentText(e.target.value)}
-                           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
-                           placeholder={replyingTo ? t('reply_placeholder') : t('post_placeholder')}
-                           className="bg-transparent border-none outline-none w-full text-sm placeholder:text-gray-500 dir-auto text-start h-full"
-                           autoFocus={!!replyingTo}
-                        />
-                     </div>
-                     <button 
-                        onClick={handleSendComment} 
-                        disabled={!commentText.trim()} 
-                        className={`h-10 w-10 flex items-center justify-center rounded-full transition-colors ${!commentText.trim() ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-50 bg-transparent'}`}
-                     >
-                        <Send size={20} style={{ transform: language === 'en' ? 'scaleX(-1)' : 'none' }} />
-                     </button>
-                  </div>
-               </div>
+      {/* Repost Modal */}
+      {isRepostModalOpen && createPortal(
+        <div className="fixed inset-0 z-[20000] bg-white flex flex-col animate-in slide-in-from-bottom duration-300">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between pt-safe bg-white z-10 sticky top-0">
+                <button onClick={() => { setIsRepostModalOpen(false); setRepostText(''); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={24} className="text-gray-700" /></button>
+                <span className="font-bold text-lg text-gray-800">{t('repost')}</span>
+                <button onClick={handleRepostSubmit} disabled={isReposting} className="px-5 py-1.5 bg-green-600 text-white rounded-full font-bold text-sm shadow-md shadow-green-200 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">{isReposting && <Loader2 size={14} className="animate-spin" />}{t('repost_button')}</button>
             </div>
-         </div>, document.body
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {isDeletePostModalOpen && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingPost && setIsDeletePostModalOpen(false)} />
-            <div className="bg-white rounded-2xl w-full max-w-sm relative z-10 animate-in zoom-in-95 p-6 text-center">
-                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Trash2 size={32} className="text-red-500" />
+            <div className="flex-1 overflow-y-auto p-4 pb-10">
+                <div className="flex gap-3 mb-6">
+                    <div className="flex-shrink-0"><Avatar name={localStorage.getItem('userName') || 'أنا'} src={localStorage.getItem('userAvatar') ? (localStorage.getItem('userAvatar')!.startsWith('http') ? localStorage.getItem('userAvatar') : `${API_BASE_URL}${localStorage.getItem('userAvatar')}`) : null} className="w-10 h-10 border border-gray-100" /></div>
+                    <textarea value={repostText} onChange={(e) => setRepostText(e.target.value)} placeholder={t('write_thought')} className="w-full h-24 p-2 text-base outline-none resize-none placeholder:text-gray-400 dir-auto text-start bg-transparent" autoFocus />
                 </div>
-                <h3 className="font-bold text-xl mb-2">{t('delete')}؟</h3>
-                <p className="text-gray-500 text-sm mb-6">{t('post_delete_confirm')}</p>
-                <div className="flex gap-3">
-                    <button 
-                        onClick={confirmDeletePost} 
-                        disabled={isDeletingPost}
-                        className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold flex justify-center items-center shadow-lg shadow-red-200"
-                    >
-                        {isDeletingPost ? <Loader2 className="animate-spin" size={20} /> : t('yes')}
-                    </button>
-                    <button 
-                        onClick={() => setIsDeletePostModalOpen(false)} 
-                        disabled={isDeletingPost}
-                        className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold"
-                    >
-                        {t('no')}
-                    </button>
-                </div>
-            </div>
-        </div>, document.body
-      )}
-
-      {/* Comment Actions */}
-      {activeCommentAction && createPortal(
-          <div className="fixed inset-0 z-[10000] flex items-end justify-center">
-             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setActiveCommentAction(null)} />
-             <div className="bg-white w-full max-w-md rounded-t-2xl pb-safe relative z-10 p-4 animate-slide-up-fast">
-                 <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
-                 <div className="flex flex-col gap-2">
-                    <button 
-                        onClick={handleCopyComment}
-                        className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-xl w-full"
-                    >
-                        <Copy size={20} className="text-blue-600" />
-                        <span className="font-bold text-gray-700">{t('copy_text')}</span>
-                    </button>
-
-                    {isCommentOwner ? (
-                        <button onClick={handleDeleteComment} className="flex items-center gap-4 p-3 hover:bg-red-50 rounded-xl w-full"><Trash2 size={20} className="text-red-600" /><span className="font-bold text-red-600">{t('delete')}</span></button>
-                    ) : (
-                        <button onClick={handleReportComment} className="flex items-center gap-4 p-3 hover:bg-red-50 rounded-xl w-full">
-                            <Flag size={20} className="text-red-600" />
-                            <span className="font-bold text-red-600">{t('report')}</span>
-                        </button>
-                    )}
-                 </div>
-             </div>
-          </div>, document.body
-      )}
-
-      {/* Comment Delete Confirmation */}
-      {commentToDelete && createPortal(
-        <div className="fixed inset-0 z-[10002] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => !isDeletingComment && setCommentToDelete(null)} />
-            <div className="bg-white rounded-2xl w-full max-w-sm relative z-10 animate-in zoom-in-95 p-6 text-center shadow-2xl">
-                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Trash2 size={32} className="text-red-500" />
-                </div>
-                <h3 className="font-bold text-xl mb-2">{t('delete')}؟</h3>
-                <p className="text-gray-500 text-sm mb-6">{t('post_delete_confirm')}</p>
-                <div className="flex gap-3">
-                    <button 
-                        onClick={confirmDeleteComment} 
-                        disabled={isDeletingComment}
-                        className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold flex justify-center items-center shadow-lg shadow-red-200"
-                    >
-                        {isDeletingComment ? <Loader2 className="animate-spin" size={20} /> : t('yes')}
-                    </button>
-                    <button 
-                        onClick={() => setCommentToDelete(null)} 
-                        disabled={isDeletingComment}
-                        className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200"
-                    >
-                        {t('no')}
-                    </button>
+                <div className="border border-gray-200 rounded-xl overflow-hidden mx-1 shadow-sm">
+                    <div className="p-3 bg-gray-50 flex items-center gap-2 border-b border-gray-100">
+                        <Avatar name={contentToRepost.user.name} src={contentToRepost.user.avatar} className="w-8 h-8" textClassName="text-xs" />
+                        <div className="flex-1 min-w-0"><span className="font-bold text-xs text-gray-900 truncate block">{contentToRepost.user.name}</span><span className="text-[10px] text-gray-500">{contentToRepost.timeAgo}</span></div>
+                    </div>
+                    {/* Reuse Post Content Render for Repost Preview */}
+                    {/* Only content is needed here, simplified logic */}
+                    <div className="bg-white p-3">
+                        <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{contentToRepost.content}</p>
+                        {contentToRepost.image && <img src={contentToRepost.image} alt="repost" className="w-full h-40 object-cover rounded-lg mt-2" />}
+                    </div>
                 </div>
             </div>
         </div>, document.body
@@ -1193,56 +1064,51 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
             <div className="bg-white w-full max-w-md rounded-t-3xl relative z-10 animate-slide-up-fast pb-safe p-6">
                 <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6" />
                 <h3 className="font-bold text-xl text-center mb-6">{t('contact_header')}</h3>
-                
                 <div className="space-y-3">
                     {post.contactMethods?.includes('واتساب') && post.contactPhone && (
-                        <a 
-                            href={`https://wa.me/${post.contactPhone.replace(/\D/g, '')}`} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="flex items-center gap-4 p-4 bg-green-50 rounded-2xl hover:bg-green-100 transition-colors group"
-                        >
-                            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-green-200 group-hover:scale-110 transition-transform">
-                                <MessageCircle size={24} />
-                            </div>
-                            <div className="text-start">
-                                <h4 className="font-bold text-gray-900">{t('contact_method_whatsapp')}</h4>
-                                <p className="text-xs text-gray-500 mt-0.5 dir-ltr text-right">{post.contactPhone}</p>
-                            </div>
-                            <ArrowRight className={`mr-auto text-green-600 ${language === 'ar' ? 'rotate-180' : ''}`} />
-                        </a>
+                        <a href={`https://wa.me/${post.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-4 bg-green-50 rounded-2xl hover:bg-green-100 transition-colors group"><div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-green-200 group-hover:scale-110 transition-transform"><MessageCircle size={24} /></div><div className="text-start"><h4 className="font-bold text-gray-900">{t('contact_method_whatsapp')}</h4><p className="text-xs text-gray-500 mt-0.5 dir-ltr text-right">{post.contactPhone}</p></div><ArrowRight className={`mr-auto text-green-600 ${language === 'ar' ? 'rotate-180' : ''}`} /></a>
                     )}
-
                     {post.contactMethods?.includes('اتصال') && post.contactPhone && (
-                        <a href={`tel:${post.contactPhone}`} className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-colors group">
-                            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
-                                <Phone size={24} />
-                            </div>
-                            <div className="text-start">
-                                <h4 className="font-bold text-gray-900">{t('contact_method_call')}</h4>
-                                <p className="text-xs text-gray-500 mt-0.5 dir-ltr text-right">{post.contactPhone}</p>
-                            </div>
-                            <ArrowRight className={`mr-auto text-blue-600 ${language === 'ar' ? 'rotate-180' : ''}`} />
-                        </a>
+                        <a href={`tel:${post.contactPhone}`} className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-colors group"><div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform"><Phone size={24} /></div><div className="text-start"><h4 className="font-bold text-gray-900">{t('contact_method_call')}</h4><p className="text-xs text-gray-500 mt-0.5 dir-ltr text-right">{post.contactPhone}</p></div><ArrowRight className={`mr-auto text-blue-600 ${language === 'ar' ? 'rotate-180' : ''}`} /></a>
                     )}
-
                     {post.contactMethods?.includes('بريد إلكتروني') && post.contactEmail && (
-                        <a href={`mailto:${post.contactEmail}`} className="flex items-center gap-4 p-4 bg-orange-50 rounded-2xl hover:bg-orange-100 transition-colors group">
-                            <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-orange-200 group-hover:scale-110 transition-transform">
-                                <Mail size={24} />
-                            </div>
-                            <div className="text-start">
-                                <h4 className="font-bold text-gray-900">{t('contact_method_email')}</h4>
-                                <p className="text-xs text-gray-500 mt-0.5">{post.contactEmail}</p>
-                            </div>
-                            <ArrowRight className={`mr-auto text-orange-600 ${language === 'ar' ? 'rotate-180' : ''}`} />
-                        </a>
+                        <a href={`mailto:${post.contactEmail}`} className="flex items-center gap-4 p-4 bg-orange-50 rounded-2xl hover:bg-orange-100 transition-colors group"><div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-orange-200 group-hover:scale-110 transition-transform"><Mail size={24} /></div><div className="text-start"><h4 className="font-bold text-gray-900">{t('contact_method_email')}</h4><p className="text-xs text-gray-500 mt-0.5">{post.contactEmail}</p></div><ArrowRight className={`mr-auto text-orange-600 ${language === 'ar' ? 'rotate-180' : ''}`} /></a>
                     )}
                 </div>
-                
-                <button onClick={() => setIsContactOpen(false)} className="w-full mt-6 py-4 bg-gray-100 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition-colors">
-                    {t('cancel')}
-                </button>
+                <button onClick={() => setIsContactOpen(false)} className="w-full mt-6 py-4 bg-gray-100 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition-colors">{t('cancel')}</button>
+            </div>
+        </div>, document.body
+      )}
+
+      {/* Comment Actions & Delete Modals (Same logic) */}
+      {activeCommentAction && createPortal(
+          <div className="fixed inset-0 z-[10000] flex items-end justify-center">
+             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setActiveCommentAction(null)} />
+             <div className="bg-white w-full max-w-md rounded-t-2xl pb-safe relative z-10 p-4 animate-slide-up-fast">
+                 <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+                 <div className="flex flex-col gap-2">
+                    <button onClick={handleCopyComment} className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-xl w-full"><Copy size={20} className="text-blue-600" /><span className="font-bold text-gray-700">{t('copy_text')}</span></button>
+                    {isCommentOwner ? (
+                        <button onClick={handleDeleteComment} className="flex items-center gap-4 p-3 hover:bg-red-50 rounded-xl w-full"><Trash2 size={20} className="text-red-600" /><span className="font-bold text-red-600">{t('delete')}</span></button>
+                    ) : (
+                        <button onClick={handleReportComment} className="flex items-center gap-4 p-3 hover:bg-red-50 rounded-xl w-full"><Flag size={20} className="text-red-600" /><span className="font-bold text-red-600">{t('report')}</span></button>
+                    )}
+                 </div>
+             </div>
+          </div>, document.body
+      )}
+
+      {commentToDelete && createPortal(
+        <div className="fixed inset-0 z-[10002] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => !isDeletingComment && setCommentToDelete(null)} />
+            <div className="bg-white rounded-2xl w-full max-w-sm relative z-10 animate-in zoom-in-95 p-6 text-center shadow-2xl">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 size={32} className="text-red-500" /></div>
+                <h3 className="font-bold text-xl mb-2">{t('delete')}؟</h3>
+                <p className="text-gray-500 text-sm mb-6">{t('post_delete_confirm')}</p>
+                <div className="flex gap-3">
+                    <button onClick={confirmDeleteComment} disabled={isDeletingComment} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold flex justify-center items-center shadow-lg shadow-red-200">{isDeletingComment ? <Loader2 className="animate-spin" size={20} /> : t('yes')}</button>
+                    <button onClick={() => setCommentToDelete(null)} disabled={isDeletingComment} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200">{t('no')}</button>
+                </div>
             </div>
         </div>, document.body
       )}

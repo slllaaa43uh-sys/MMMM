@@ -13,53 +13,59 @@ interface BottomNavProps {
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onOpenCreate }) => {
   const { t } = useLanguage();
   
-  const navContainerClass = "bg-white border-gray-200 border-t pb-safe pt-1";
+  // YouTube style: ~48px height content + safe area
+  const navContainerClass = "bg-white border-t border-gray-100 pb-safe fixed bottom-0 w-full max-w-md z-50";
     
   const getButtonClass = (tabName: string) => {
     const isActive = activeTab === tabName;
     
+    // YouTube logic: Active is darker/colored, Inactive is gray
     if (isActive) {
-        if (tabName === 'haraj') return "text-orange-600";
-        if (tabName === 'jobs') return "text-purple-600";
-        if (tabName === 'world') return "text-green-600";
-        if (tabName === 'urgent') return "text-red-600"; // Color for Urgent
-        return "text-blue-600";
+        if (tabName === 'haraj') return "text-black font-bold"; // Or specific brand color
+        if (tabName === 'jobs') return "text-black font-bold";
+        if (tabName === 'world') return "text-black font-bold";
+        if (tabName === 'urgent') return "text-black font-bold";
+        return "text-black font-bold"; // Home
     }
-    return "text-gray-400";
+    return "text-gray-600 font-normal";
+  };
+
+  const getIconStroke = (tabName: string) => {
+      return activeTab === tabName ? 2.5 : 1.5; // Thicker stroke for active (mimics filled state)
   };
 
   return (
-    <nav className={`fixed bottom-0 w-full max-w-md z-50 ${navContainerClass}`}>
-      <div className="flex justify-around items-center px-2 pb-1 h-[48px]">
+    <nav className={navContainerClass}>
+      <div className="flex justify-around items-center h-[48px] px-1">
         
         {/* Home */}
         <button 
           onClick={() => setActiveTab('home')}
-          className={`flex flex-col items-center gap-0.5 w-14 active:scale-95 transition-transform ${getButtonClass('home')}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('home')}`}
         >
-          <Home size={24} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
-          <span className={`text-[9px] ${activeTab === 'home' ? 'font-bold' : 'font-medium'}`}>{t('nav_home')}</span>
+          <Home size={24} strokeWidth={getIconStroke('home')} />
+          <span className="text-[10px] leading-none tracking-tight">{t('nav_home')}</span>
         </button>
 
         {/* Jobs (Wazaef) */}
         <button 
           onClick={() => setActiveTab('jobs')}
-          className={`flex flex-col items-center gap-0.5 w-14 active:scale-95 transition-transform ${getButtonClass('jobs')}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('jobs')}`}
         >
-          <Briefcase size={24} strokeWidth={activeTab === 'jobs' ? 2.5 : 2} />
-          <span className={`text-[9px] ${activeTab === 'jobs' ? 'font-bold' : 'font-medium'}`}>{t('nav_jobs')}</span>
+          <Briefcase size={24} strokeWidth={getIconStroke('jobs')} />
+          <span className="text-[10px] leading-none tracking-tight">{t('nav_jobs')}</span>
         </button>
 
-        {/* CENTER BUTTON: URGENT JOBS (Replaces Create) */}
+        {/* CENTER BUTTON: URGENT JOBS - Sized to match icons */}
         <button 
           onClick={() => setActiveTab('urgent')}
-          className={`flex flex-col items-center justify-center gap-0.5 w-14 active:scale-90 transition-transform ${getButtonClass('urgent')}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('urgent')}`}
         >
-          {/* Logo container with active state styling */}
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border-2 transition-all ${activeTab === 'urgent' ? 'border-red-500 shadow-md scale-110' : 'border-gray-200 bg-gray-50'}`}>
+          {/* Container size matches icon optical size (24px~28px) */}
+          <div className="w-6 h-6 flex items-center justify-center">
              <Logo className="w-full h-full" />
           </div>
-          <span className={`text-[9px] ${activeTab === 'urgent' ? 'font-bold' : 'font-medium'}`}>
+          <span className="text-[10px] leading-none tracking-tight">
             {t('nav_urgent')}
           </span>
         </button>
@@ -67,19 +73,19 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onOpenCr
         {/* World (Global Jobs) */}
         <button 
           onClick={() => setActiveTab('world')}
-          className={`flex flex-col items-center gap-0.5 w-14 active:scale-95 transition-transform ${getButtonClass('world')}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('world')}`}
         >
-          <Globe size={24} strokeWidth={activeTab === 'world' ? 2.5 : 2} />
-          <span className={`text-[9px] ${activeTab === 'world' ? 'font-bold' : 'font-medium'}`}>{t('nav_world')}</span>
+          <Globe size={24} strokeWidth={getIconStroke('world')} />
+          <span className="text-[10px] leading-none tracking-tight">{t('nav_world')}</span>
         </button>
 
          {/* Haraj (Marketplace) */}
          <button 
           onClick={() => setActiveTab('haraj')}
-          className={`flex flex-col items-center gap-0.5 w-14 active:scale-95 transition-transform ${getButtonClass('haraj')}`}
+          className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('haraj')}`}
         >
-          <Store size={24} strokeWidth={activeTab === 'haraj' ? 2.5 : 2} />
-          <span className={`text-[9px] ${activeTab === 'haraj' ? 'font-bold' : 'font-medium'}`}>{t('nav_haraj')}</span>
+          <Store size={24} strokeWidth={getIconStroke('haraj')} />
+          <span className="text-[10px] leading-none tracking-tight">{t('nav_haraj')}</span>
         </button>
 
       </div>
