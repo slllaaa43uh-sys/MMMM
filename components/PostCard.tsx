@@ -786,6 +786,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                     >
                         {post.user.name}
                         {jobStatus === 'hired' && <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-green-200">{t('status_hired')}</span>}
+                        {jobStatus === 'negotiating' && <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-yellow-200">{t('status_negotiating')}</span>}
                     </h3>
                     
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">

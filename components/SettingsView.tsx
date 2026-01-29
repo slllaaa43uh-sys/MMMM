@@ -76,10 +76,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
     try {
         // We use 'user' as reportType targeting the current user to ensure backend acceptance,
         // while passing the actual problem in the reason field.
+        // Appended timestamp to ensure uniqueness and prevent duplicate rejection
         const payload = {
             reportType: 'user', 
             targetId: currentUserId, 
-            reason: `[PROBLEM REPORT] ${reportText}`,
+            reason: `[PROBLEM REPORT] ${reportText} [${Date.now()}]`,
             details: reportText,
             media: [],
             loadingDate: null,

@@ -1092,6 +1092,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
                                     variant="profile" 
                                     onDelete={isMe ? () => requestDeletePost(post.id, post.isShort) : undefined}
                                     onReport={onReport}
+                                    hideActions={true} // Hidden actions as requested
                                 />
                                 <div className="h-2 bg-gray-50 dark:bg-black w-full"></div>
                             </div>
