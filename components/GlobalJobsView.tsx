@@ -1,7 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell, BellOff, RefreshCw } from 'lucide-react';
+import { 
+  Briefcase, MapPin, Globe, Clock, ChevronRight, ExternalLink, Building2, Loader2, DollarSign, 
+  Languages, Settings, X, Check, ShieldAlert, AlertTriangle, Image as ImageIcon, Bell, BellOff, RefreshCw,
+  Code, Palette, Stethoscope, GraduationCap, Car, Megaphone
+} from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { API_BASE_URL } from '../constants';
 // Updated Imports
@@ -68,18 +72,55 @@ const TARGET_LANGUAGES = [
   { code: "fa", label: "فارسی" }, 
 ];
 
-// --- 1. Isolated Component for Main Job Image (With Video Support) ---
-const JobCardImage = ({ src, alt, type }: { src: string | null, alt: string, type?: 'image' | 'video' }) => {
+// --- 1. Isolated Component for Main Job Image (With Video Support & Dynamic Colors) ---
+const JobCardImage = ({ src, alt, type, title = '' }: { src: string | null, alt: string, type?: 'image' | 'video', title?: string }) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isError, setIsError] = useState(false);
 
-    // If no source, show placeholder immediately
-    if (!src) {
-        return (
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                <Briefcase className="text-gray-300 w-16 h-16 opacity-50" />
+    // Helper to determine style based on title
+    const getPlaceholderStyle = (text: string) => {
+        const t = text.toLowerCase();
+        if (t.includes('developer') || t.includes('software') || t.includes('engineer') || t.includes('tech') || t.includes('web') || t.includes('data') || t.includes('stack') || t.includes('it') || t.includes('net') || t.includes('java') || t.includes('python')) {
+            return { Icon: Code, gradient: 'bg-gradient-to-br from-indigo-600 to-blue-700' };
+        }
+        if (t.includes('designer') || t.includes('art') || t.includes('creative') || t.includes('ui') || t.includes('ux') || t.includes('graphic') || t.includes('video') || t.includes('editor')) {
+            return { Icon: Palette, gradient: 'bg-gradient-to-br from-pink-500 to-rose-600' };
+        }
+        if (t.includes('marketing') || t.includes('sales') || t.includes('social') || t.includes('media') || t.includes('seo') || t.includes('content')) {
+            return { Icon: Megaphone, gradient: 'bg-gradient-to-br from-orange-500 to-red-600' };
+        }
+        if (t.includes('manager') || t.includes('business') || t.includes('executive') || t.includes('lead') || t.includes('director') || t.includes('admin') || t.includes('hr')) {
+            return { Icon: Briefcase, gradient: 'bg-gradient-to-br from-slate-700 to-slate-900' };
+        }
+        if (t.includes('doctor') || t.includes('nurse') || t.includes('medical') || t.includes('health') || t.includes('care') || t.includes('pharmacy')) {
+            return { Icon: Stethoscope, gradient: 'bg-gradient-to-br from-teal-500 to-emerald-700' };
+        }
+        if (t.includes('teacher') || t.includes('education') || t.includes('tutor') || t.includes('professor') || t.includes('school') || t.includes('academic')) {
+            return { Icon: GraduationCap, gradient: 'bg-gradient-to-br from-amber-500 to-yellow-600' };
+        }
+        if (t.includes('driver') || t.includes('delivery') || t.includes('logistics') || t.includes('transport') || t.includes('warehouse')) {
+            return { Icon: Car, gradient: 'bg-gradient-to-br from-zinc-600 to-neutral-800' };
+        }
+        // Default Global
+        return { Icon: Globe, gradient: 'bg-gradient-to-br from-cyan-500 to-blue-600' };
+    };
+
+    const { Icon, gradient } = getPlaceholderStyle(title);
+
+    const Placeholder = () => (
+        <div className={`absolute inset-0 ${gradient} flex flex-col items-center justify-center p-6 text-white`}>
+            {/* Pattern Overlay */}
+            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle,rgba(255,255,255,0.2)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
+            
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-3 shadow-inner border border-white/10 relative z-10">
+                <Icon className="text-white w-8 h-8 opacity-90" strokeWidth={1.5} />
             </div>
-        );
+        </div>
+    );
+
+    // If no source or error, show colored placeholder
+    if (!src || isError) {
+        return <Placeholder />;
     }
 
     if (type === 'video') {
@@ -116,21 +157,14 @@ const JobCardImage = ({ src, alt, type }: { src: string | null, alt: string, typ
             )}
 
             {/* Actual Image */}
-            {!isError ? (
-                <img 
-                    src={src} 
-                    alt={alt} 
-                    className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-                    onLoad={() => setIsLoaded(true)}
-                    onError={() => setIsError(true)}
-                    loading="lazy"
-                />
-            ) : (
-                /* Error Fallback */
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center z-0">
-                    <Briefcase className="text-gray-300 w-12 h-12 opacity-50" />
-                </div>
-            )}
+            <img 
+                src={src} 
+                alt={alt} 
+                className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setIsLoaded(true)}
+                onError={() => setIsError(true)}
+                loading="lazy"
+            />
 
             {/* Gradient Overlay (Always on top of image) */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none z-10" />
@@ -509,11 +543,12 @@ const GlobalJobsView: React.FC<{ isActive: boolean }> = ({ isActive }) => {
                     {/* Full Width Visual Container */}
                     <div className="w-full aspect-video bg-gray-50 relative overflow-hidden group select-none">
                        
-                       {/* 1. Main Job Image (Background) */}
+                       {/* 1. Main Job Image (Background) with Dynamic Placeholder */}
                        <JobCardImage 
                            src={job.media?.url} 
                            alt={job.title} 
                            type={job.media?.type}
+                           title={job.title}
                        />
                        
                        {/* Refresh Button */}
