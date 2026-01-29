@@ -659,7 +659,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
 
   // Check if post has visual media
   const hasMedia = !!(post.image || (post.media && post.media.length > 0 && (post.media[0].type === 'image' || post.media[0].type === 'video')));
-  const mainMediaUrl = post.media && post.media.length > 0 ? post.media[0].url : post.image;
+  
+  // FIXED CODE: Correctly extract media URL for display
+  const rawMediaUrl = post.media && post.media.length > 0 ? post.media[0].url : post.image;
+  const mainMediaUrl = rawMediaUrl && !rawMediaUrl.startsWith('http') 
+    ? `${API_BASE_URL}${rawMediaUrl}` 
+    : rawMediaUrl;
+
   const isVideo = post.media && post.media.length > 0 && post.media[0].type === 'video';
 
   // --- Dynamic Category/Title Logic ---
@@ -694,8 +700,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                         />
                     )}
                     
-                    {/* Gradient Overlay for Text Readability */}
+                    {/* Gradient Overlay for Text Readability - Updated logic to overlay Title */}
                     <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 pointer-events-none transition-opacity duration-300"></div>
+                    
+                    {/* Overlay Title/Icon on Media (Requested Feature) */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-6 text-center text-white">
+                         {/* Only show if it's a specific title/category, not general posts to avoid clutter */}
+                         {(post.category || post.title) && (
+                             <>
+                                <div className="mb-3 opacity-80 drop-shadow-md">
+                                    <HeaderIcon className="w-12 h-12" />
+                                </div>
+                                <span className="font-bold text-lg leading-tight drop-shadow-md opacity-90 max-w-[80%]">
+                                    {t(displayTitle)}
+                                </span>
+                             </>
+                         )}
+                    </div>
                 </>
             ) : (
                 // Fallback Gradient if no media

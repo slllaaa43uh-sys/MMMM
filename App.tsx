@@ -213,6 +213,19 @@ const AppContent: React.FC = () => {
               })
             });
             console.log('✅ FCM Token synced with server');
+            
+            const savedSubs = JSON.parse(localStorage.getItem('user_subscriptions') || '{}');
+            const topicKeys = Object.keys(savedSubs);
+            if (topicKeys.length > 0) {
+              for (const topicKey of topicKeys) {
+                let body: any = { deviceToken: fcmToken };
+                if (topicKey === 'urgent_jobs') body.topic = 'urgent_jobs';
+                else if (topicKey === 'global-jobs') body.topic = 'global-jobs';
+                else if (topicKey.startsWith('jobs_')) { const parts = topicKey.split('_'); body.topic = 'jobs'; body.category = parts[1]; body.subType = parts[2]; }
+                else if (topicKey.startsWith('haraj_')) { body.topic = 'haraj'; body.category = topicKey.replace('haraj_', ''); }
+                try { await fetch(`${API_BASE_URL}/api/v1/fcm/subscribe`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(body) }); } catch (e) {}
+              }
+            }
           }
 
           // 3. Add Listeners
@@ -434,7 +447,10 @@ const AppContent: React.FC = () => {
       timeAgo: apiPost.createdAt ? getRelativeTime(apiPost.createdAt) : 'الآن',
       createdAt: apiPost.createdAt,
       content: apiPost.text || apiPost.content || '',
-      image: apiPost.media && apiPost.media.length > 0 ? (apiPost.media[0].url.startsWith('http') ? apiPost.media[0].url : `${API_BASE_URL}${apiPost.media[0].url}`) : undefined,
+      // FIX: Ensure image is populated if media array is empty but root image exists
+      image: apiPost.media && apiPost.media.length > 0 
+        ? (apiPost.media[0].url.startsWith('http') ? apiPost.media[0].url : `${API_BASE_URL}${apiPost.media[0].url}`) 
+        : (apiPost.image ? (apiPost.image.startsWith('http') ? apiPost.image : `${API_BASE_URL}${apiPost.image}`) : undefined),
       media: apiPost.media ? apiPost.media.map((m: any) => ({ url: m.url.startsWith('http') ? m.url : `${API_BASE_URL}${m.url}`, type: m.type, thumbnail: m.thumbnail })) : [],
       likes: reactions.filter((r: any) => !r.type || r.type === 'like').length,
       comments: apiPost.comments?.length || 0,
