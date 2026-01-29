@@ -76,7 +76,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
     try {
         // We use 'user' as reportType targeting the current user to ensure backend acceptance,
         // while passing the actual problem in the reason field.
-        // Appended timestamp to ensure uniqueness and prevent duplicate rejection
         const payload = {
             reportType: 'user', 
             targetId: currentUserId, 
@@ -96,14 +95,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
             body: JSON.stringify(payload)
         });
 
-        if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        // Handle success OR duplicate report specifically for Settings Help
+        // We allow the user to feel it succeeded even if backend dedupes it
+        if (response.ok || (data.message && (data.message.includes('مسبقاً') || data.message.includes('already')))) {
             alert(t('report_success'));
             setReportText('');
             setActiveModal('none');
         } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error("Report failed:", errorData);
-            alert("فشل إرسال البلاغ. يرجى المحاولة لاحقاً.");
+            console.error("Report failed:", data);
+            alert(data.message || "فشل إرسال البلاغ. يرجى المحاولة لاحقاً.");
         }
     } catch (error) {
         console.error("Report error:", error);
