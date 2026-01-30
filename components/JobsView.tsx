@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Post } from '../types';
 import { JOB_CATEGORIES } from '../data/categories';
-import { API_BASE_URL } from '../constants';
+import { API_BASE_URL, WHATSAPP_WELCOME_MESSAGE } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
 import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
@@ -142,8 +142,8 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [contactPost, setContactPost] = useState<Post | null>(null);
 
-  // The requested WhatsApp message
-  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+    // The requested WhatsApp message
+    const whatsappMessage = WHATSAPP_WELCOME_MESSAGE;
 
   const handleSubPageSelect = (type: 'seeker' | 'employer') => {
     if (selectedCategory) {

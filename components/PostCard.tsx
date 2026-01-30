@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Post } from '../types';
-import { API_BASE_URL } from '../constants';
+import { API_BASE_URL, WHATSAPP_WELCOME_MESSAGE } from '../constants';
 import { 
   MessageCircle, Share2, MoreHorizontal, ThumbsUp, 
   X, EyeOff, Link, Flag, Send, Trash2, Copy, Repeat, 
@@ -194,7 +194,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [isPlaying, setIsPlaying] = useState(false); 
 
   // The requested WhatsApp message
-  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+    const whatsappMessage = WHATSAPP_WELCOME_MESSAGE;
 
   // --- Dynamic Time & Location Calculation ---
   const getDynamicTime = () => {

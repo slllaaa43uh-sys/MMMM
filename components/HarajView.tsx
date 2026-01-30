@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Post } from '../types';
 import { HARAJ_CATEGORIES } from '../data/categories';
-import { API_BASE_URL } from '../constants';
+import { API_BASE_URL, WHATSAPP_WELCOME_MESSAGE } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
 import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
@@ -141,8 +141,8 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [contactPost, setContactPost] = useState<Post | null>(null);
 
-  // The requested WhatsApp message
-  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+    // The requested WhatsApp message
+    const whatsappMessage = WHATSAPP_WELCOME_MESSAGE;
 
   const handleCategoryClick = (name: string) => {
     setLoading(true); 
@@ -381,12 +381,23 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       setTranslatingIds(prev => new Set(prev).add(postId));
 
       try {
-          const target = translationTarget; 
-          const textToTranslate = post.content;
+          const target = translationTarget || 'en';
+          const baseText = (post.content || post.title || '').trim();
+          const textToTranslate = baseText;
           
           if (!textToTranslate) throw new Error("No text");
 
-          const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=ar|${target}`);
+          const source = /[\u0600-\u06FF]/.test(textToTranslate) ? 'ar' : 'en';
+
+          if (source === target) {
+              setTranslations(prev => ({
+                  ...prev,
+                  [postId]: { text: textToTranslate, show: true, lang: target }
+              }));
+              return;
+          }
+
+          const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=${source}|${target}`);
           const data = await response.json();
           
           if (data.responseData && data.responseData.translatedText) { 
@@ -643,7 +654,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
 
                         {/* Post Text */}
                         <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-2 mb-3 whitespace-pre-wrap dir-auto">
-                            {translations[post.id]?.show ? translations[post.id].text : post.content}
+                            {translations[post.id]?.show ? translations[post.id].text : (post.content || post.title || '')}
                         </p>
 
                         {/* Location & Time Footer */}

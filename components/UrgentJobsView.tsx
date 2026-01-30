@@ -6,7 +6,7 @@ import {
   Share2, Link as LinkIcon, Flag, Phone, Mail, Check, X, Globe, Settings, CheckCircle, Star, Tag, Search, MessageCircle, Copy, ArrowRight
 } from 'lucide-react';
 import { Post } from '../types';
-import { API_BASE_URL } from '../constants';
+import { API_BASE_URL, WHATSAPP_WELCOME_MESSAGE } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
 import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
@@ -115,8 +115,8 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
   // Contact Modal State
   const [contactPost, setContactPost] = useState<Post | null>(null);
 
-  // The requested WhatsApp message
-  const whatsappMessage = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";
+    // The requested WhatsApp message
+    const whatsappMessage = WHATSAPP_WELCOME_MESSAGE;
 
   // Check subscription status
   useEffect(() => {
