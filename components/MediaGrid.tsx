@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 interface MediaGridProps {
@@ -116,6 +116,11 @@ const MediaGrid: React.FC<MediaGridProps> = ({ media, maxDisplay = 3, variant = 
 const Lightbox: React.FC<{ media: any[], initialIndex: number, onClose: () => void }> = ({ media, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const current = media[currentIndex];
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+
+  useEffect(() => {
+    setIsVideoLoading(true);
+  }, [currentIndex]);
 
     return createPortal(
         <div className="fixed inset-0 z-[9999] bg-black flex flex-col animate-in fade-in duration-200">
@@ -125,9 +130,27 @@ const Lightbox: React.FC<{ media: any[], initialIndex: number, onClose: () => vo
             
             <div className="flex-1 flex items-center justify-center relative">
                 {current.type === 'video' ? (
-                    <video src={current.url} controls autoPlay className="max-w-full max-h-full" />
+                  <video
+                    src={current.url}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-full"
+                    onLoadStart={() => setIsVideoLoading(true)}
+                    onLoadedData={() => setIsVideoLoading(false)}
+                    onCanPlay={() => setIsVideoLoading(false)}
+                    onPlaying={() => setIsVideoLoading(false)}
+                    onWaiting={() => setIsVideoLoading(true)}
+                    onStalled={() => setIsVideoLoading(true)}
+                    onError={() => setIsVideoLoading(false)}
+                  />
                 ) : (
                     <img src={current.url} alt="" className="max-w-full max-h-full object-contain" />
+                )}
+
+                {current.type === 'video' && isVideoLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
+                    <Loader2 size={48} className="text-white animate-spin" />
+                  </div>
                 )}
                 
                 {/* Navigation zones */}

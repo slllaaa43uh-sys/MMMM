@@ -137,6 +137,10 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
   const [isLangSheetOpen, setIsLangSheetOpen] = useState(false);
   const [langSearch, setLangSearch] = useState('');
 
+    // Video Loading State (per post)
+    const [videoLoadingIds, setVideoLoadingIds] = useState<Set<string>>(new Set());
+    const [videoPausedIds, setVideoPausedIds] = useState<Set<string>>(new Set());
+
   // Menu & Contact State
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [contactPost, setContactPost] = useState<Post | null>(null);
@@ -148,6 +152,51 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     setLoading(true); 
     setActiveCategory(name);
     onFullScreenToggle(true);
+  };
+
+  const markVideoLoading = (postId: string) => {
+      setVideoLoadingIds(prev => {
+          const next = new Set(prev);
+          next.add(postId);
+          return next;
+      });
+  };
+
+  const clearVideoLoading = (postId: string) => {
+      setVideoLoadingIds(prev => {
+          const next = new Set(prev);
+          next.delete(postId);
+          return next;
+      });
+  };
+
+  const markVideoPaused = (postId: string) => {
+      setVideoPausedIds(prev => {
+          const next = new Set(prev);
+          next.add(postId);
+          return next;
+      });
+  };
+
+  const clearVideoPaused = (postId: string) => {
+      setVideoPausedIds(prev => {
+          const next = new Set(prev);
+          next.delete(postId);
+          return next;
+      });
+  };
+
+  const handleVideoToggle = (postId: string, e: React.MouseEvent<HTMLVideoElement>) => {
+      e.stopPropagation();
+      const video = e.currentTarget;
+      if (video.paused) {
+          video.muted = false;
+          clearVideoPaused(postId);
+          video.play().catch(() => {});
+      } else {
+          video.pause();
+          markVideoPaused(postId);
+      }
   };
 
   const handleBack = () => {
@@ -516,10 +565,12 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
                <Loader2 size={40} className="text-orange-600 animate-spin" />
             </div>
           ) : posts.length > 0 ? (
-             posts.map((post) => {
+                 posts.map((post) => {
                 const coverMedia = post.media?.[0];
                 const isVideo = coverMedia?.type === 'video' && !!coverMedia.url;
                 const coverImage = isVideo ? (coverMedia?.thumbnail || post.image) : (coverMedia?.url || post.image);
+                     const isVideoLoading = videoLoadingIds.has(post.id);
+                const isVideoPaused = videoPausedIds.has(post.id);
 
                 return (
                 <div key={post.id} className="relative bg-white dark:bg-[#1e1e1e] shadow-sm border-b border-gray-100 dark:border-gray-800">
@@ -534,6 +585,16 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
                                 muted
                                 playsInline
                                 loop
+                                controls={isVideoPaused}
+                                onClick={(e) => handleVideoToggle(post.id, e)}
+                                onLoadStart={() => markVideoLoading(post.id)}
+                                onLoadedData={() => clearVideoLoading(post.id)}
+                                onCanPlay={() => clearVideoLoading(post.id)}
+                                onPlaying={() => { clearVideoLoading(post.id); clearVideoPaused(post.id); }}
+                                onWaiting={() => markVideoLoading(post.id)}
+                                onStalled={() => markVideoLoading(post.id)}
+                                onPause={() => markVideoPaused(post.id)}
+                                onError={() => clearVideoLoading(post.id)}
                             />
                         ) : coverImage ? (
                             <img 
@@ -556,6 +617,12 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
                                         {post.title || t('haraj_subtitle')}
                                     </span>
                                 </div>
+                            </div>
+                        )}
+
+                        {isVideo && isVideoLoading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 pointer-events-none">
+                                <Loader2 size={32} className="text-white animate-spin" />
                             </div>
                         )}
 

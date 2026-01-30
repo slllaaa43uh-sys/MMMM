@@ -40,6 +40,7 @@ const VideoDetailView: React.FC<VideoDetailViewProps> = ({ notification, onBack,
   const [videoData, setVideoData] = useState<any>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+    const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   
   // Always keep comments open in this view
@@ -135,13 +136,25 @@ const VideoDetailView: React.FC<VideoDetailViewProps> = ({ notification, onBack,
     fetchData();
   }, [notification.targetId, notification.notificationType, notification.replyId, fetchComments]);
 
-  const togglePlay = () => {
-    if (videoRef.current) {
-        if (isPlaying) videoRef.current.pause();
-        else videoRef.current.play();
-        setIsPlaying(!isPlaying);
-    }
-  };
+    const togglePlay = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (video.paused) {
+                video.muted = false;
+                video.controls = false;
+                video.play().then(() => setIsPlaying(true)).catch(() => {});
+        } else {
+                video.pause();
+                video.controls = true;
+                setIsPlaying(false);
+        }
+    };
+
+    const handleVideoLoadStart = () => setIsVideoLoading(true);
+    const handleVideoCanPlay = () => setIsVideoLoading(false);
+    const handleVideoWaiting = () => setIsVideoLoading(true);
+    const handleVideoStalled = () => setIsVideoLoading(true);
+    const handleVideoError = () => setIsVideoLoading(false);
 
   const handleSendComment = async () => {
     if (!commentText.trim() || !videoData) return;
@@ -380,23 +393,36 @@ const VideoDetailView: React.FC<VideoDetailViewProps> = ({ notification, onBack,
          <div className="w-8"></div>
       </div>
 
-      <div className="flex-1 relative bg-gray-900" onClick={togglePlay}>
-         {finalVideoUrl && (
-            <video 
-              ref={videoRef}
-              src={finalVideoUrl} 
-              loop 
-              playsInline
-              autoPlay
-              className="w-full h-full object-contain"
-            />
-         )}
-         {!isPlaying && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-               <Play size={64} className="text-white/80 fill-white/80" />
-            </div>
-         )}
-      </div>
+        <div className="flex-1 relative bg-gray-900" onClick={togglePlay}>
+            {finalVideoUrl && (
+                <video 
+                  ref={videoRef}
+                  src={finalVideoUrl} 
+                  loop 
+                  playsInline
+                  autoPlay
+                  controls={!isPlaying}
+                  className="w-full h-full object-contain"
+                  onLoadStart={handleVideoLoadStart}
+                  onLoadedData={handleVideoCanPlay}
+                  onCanPlay={handleVideoCanPlay}
+                  onPlaying={handleVideoCanPlay}
+                  onWaiting={handleVideoWaiting}
+                  onStalled={handleVideoStalled}
+                  onError={handleVideoError}
+                />
+            )}
+            {finalVideoUrl && isVideoLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <Loader2 size={48} className="text-white animate-spin" />
+                </div>
+            )}
+            {!isPlaying && !isVideoLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <Play size={64} className="text-white/80 fill-white/80" />
+                </div>
+            )}
+        </div>
 
       {isCommentsOpen && createPortal(
          <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center pointer-events-none">

@@ -156,6 +156,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [isImageLoaded, setIsImageLoaded] = useState(false); 
   const [imageError, setImageError] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
+    const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState(false);
   
   const [isTranslated, setIsTranslated] = useState(false);
@@ -260,6 +261,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   useEffect(() => {
     setImageError(false);
     setIsVideoReady(false);
+        setIsVideoLoading(false);
     setVideoError(false);
     setIsPlaying(false);
     setIsImageLoaded(false); 
@@ -321,6 +323,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
       const video = videoRef.current;
       if (video) {
           if (video.paused) {
+              video.muted = false;
+              setIsMuted(false);
               video.play().then(() => setIsPlaying(true)).catch(()=>{});
           } else {
               video.pause(); 
@@ -339,7 +343,30 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
       }
   };
 
+  const handleVideoLoadStart = () => {
+      setIsVideoLoading(true);
+  };
+
+  const handleVideoCanPlay = () => {
+      setIsVideoLoading(false);
+      setIsVideoReady(true);
+  };
+
+  const handleVideoWaiting = () => {
+      setIsVideoLoading(true);
+  };
+
+  const handleVideoStalled = () => {
+      setIsVideoLoading(true);
+  };
+
+  const handleVideoError = () => {
+      setVideoError(true);
+      setIsVideoLoading(false);
+  };
+
   const handleVideoPlaying = () => {
+      setIsVideoLoading(false);
       setIsVideoReady(true); 
       setIsPlaying(true);
   };
@@ -702,8 +729,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                             playsInline 
                             loop 
                             muted={isMuted} 
+                            controls={!isPlaying}
                             className="w-full h-full object-cover" 
                             onClick={togglePlay}
+                            onLoadStart={handleVideoLoadStart}
+                            onLoadedData={handleVideoCanPlay}
+                            onCanPlay={handleVideoCanPlay}
+                            onPlaying={handleVideoPlaying}
+                            onWaiting={handleVideoWaiting}
+                            onStalled={handleVideoStalled}
+                            onError={handleVideoError}
+                            onPause={() => setIsPlaying(false)}
                         />
                     ) : (
                         <img 
@@ -711,6 +747,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                             alt="Post Content" 
                             className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
                         />
+                    )}
+
+                    {isVideo && isVideoLoading && !videoError && (
+                        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/30 pointer-events-none">
+                            <Loader2 size={36} className="text-white animate-spin" />
+                        </div>
                     )}
                     
                     {/* Gradient Overlay for Text Readability - Updated logic to overlay Title */}

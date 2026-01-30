@@ -1,4 +1,4 @@
 
-export const API_BASE_URL = "https://mehnati-api.xyz";
+export const API_BASE_URL = import.meta.env.DEV ? "" : "https://mehnati-api.xyz";
 
 export const WHATSAPP_WELCOME_MESSAGE = "مرحبًا 👋،\n\nأنا أتقدم لهذه الوظيفة التي وجدتها في تطبيق مهنتي لي 🌟.\nيسعدني التواصل معك لمزيد من التفاصيل حول فرصتي ومؤهلاتي.\n\nشكرًا جزيلًا على وقتك! 🙏";

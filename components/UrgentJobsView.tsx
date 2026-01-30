@@ -109,6 +109,10 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
   const [isLangSheetOpen, setIsLangSheetOpen] = useState(false);
   const [langSearch, setLangSearch] = useState('');
 
+    // Video Loading State (per post)
+    const [videoLoadingIds, setVideoLoadingIds] = useState<Set<string>>(new Set());
+    const [videoPausedIds, setVideoPausedIds] = useState<Set<string>>(new Set());
+
   // Menu State
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   
@@ -117,6 +121,51 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
 
     // The requested WhatsApp message
     const whatsappMessage = WHATSAPP_WELCOME_MESSAGE;
+
+      const markVideoLoading = (postId: string) => {
+          setVideoLoadingIds(prev => {
+              const next = new Set(prev);
+              next.add(postId);
+              return next;
+          });
+      };
+
+      const clearVideoLoading = (postId: string) => {
+          setVideoLoadingIds(prev => {
+              const next = new Set(prev);
+              next.delete(postId);
+              return next;
+          });
+      };
+
+      const markVideoPaused = (postId: string) => {
+          setVideoPausedIds(prev => {
+              const next = new Set(prev);
+              next.add(postId);
+              return next;
+          });
+      };
+
+      const clearVideoPaused = (postId: string) => {
+          setVideoPausedIds(prev => {
+              const next = new Set(prev);
+              next.delete(postId);
+              return next;
+          });
+      };
+
+      const handleVideoToggle = (postId: string, e: React.MouseEvent<HTMLVideoElement>) => {
+          e.stopPropagation();
+          const video = e.currentTarget;
+          if (video.paused) {
+              video.muted = false;
+              clearVideoPaused(postId);
+              video.play().catch(() => {});
+          } else {
+              video.pause();
+              markVideoPaused(postId);
+          }
+      };
 
   // Check subscription status
   useEffect(() => {
@@ -491,6 +540,8 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                 const coverMedia = post.media?.[0];
                 const isVideo = coverMedia?.type === 'video' && !!coverMedia.url;
                 const coverImage = isVideo ? (coverMedia?.thumbnail || post.image) : (coverMedia?.url || post.image);
+                     const isVideoLoading = videoLoadingIds.has(post.id);
+                const isVideoPaused = videoPausedIds.has(post.id);
 
                 return (
                 <div key={post.id} className="relative bg-white dark:bg-[#1e1e1e] shadow-sm border-b border-gray-100 dark:border-gray-800">
@@ -504,6 +555,16 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                                 muted
                                 playsInline
                                 loop
+                                controls={isVideoPaused}
+                                onClick={(e) => handleVideoToggle(post.id, e)}
+                                onLoadStart={() => markVideoLoading(post.id)}
+                                onLoadedData={() => clearVideoLoading(post.id)}
+                                onCanPlay={() => clearVideoLoading(post.id)}
+                                onPlaying={() => { clearVideoLoading(post.id); clearVideoPaused(post.id); }}
+                                onWaiting={() => markVideoLoading(post.id)}
+                                onStalled={() => markVideoLoading(post.id)}
+                                onPause={() => markVideoPaused(post.id)}
+                                onError={() => clearVideoLoading(post.id)}
                             />
                         ) : coverImage ? (
                             <img 
@@ -526,6 +587,12 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                                         {post.title || t('urgent_job_title')}
                                     </span>
                                 </div>
+                            </div>
+                        )}
+
+                        {isVideo && isVideoLoading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 pointer-events-none">
+                                <Loader2 size={32} className="text-white animate-spin" />
                             </div>
                         )}
 

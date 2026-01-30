@@ -46,6 +46,7 @@ import { BadgeCounterService } from './services/badgeCounterService';
 declare global {
   interface Window {
     handleNotification: (data: any) => void;
+    checkCorsDebug?: () => Promise<void>;
   }
 }
 
@@ -341,6 +342,29 @@ const AppContent: React.FC = () => {
   const handleLocationSelect = (country: string, city: string | null) => setCurrentLocation({ country, city });
   const handleSetActiveTab = (newTab: string) => activeTab !== newTab && setActiveTab(newTab);
   const handleOpenProfile = (userId: string | null = null) => setViewingProfileId(userId || 'me');
+
+  const checkCorsDebug = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/cors-debug`, { method: 'GET' });
+      const data = await res.json();
+      console.log('CORS Debug:', data);
+      alert(JSON.stringify(data, null, 2));
+    } catch (e) {
+      console.error('CORS Debug error:', e);
+      alert(language === 'ar' ? 'خطأ في فحص CORS' : 'CORS debug failed');
+    }
+  };
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      window.checkCorsDebug = checkCorsDebug;
+    }
+    return () => {
+      if (window.checkCorsDebug === checkCorsDebug) {
+        delete window.checkCorsDebug;
+      }
+    };
+  }, [language]);
   
   const handleReport = (type: 'post' | 'comment' | 'reply' | 'video', id: string, name: string) => {
     // Check if user is logged in
