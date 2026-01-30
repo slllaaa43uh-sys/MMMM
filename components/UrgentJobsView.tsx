@@ -63,6 +63,17 @@ const TARGET_LANGUAGES = [
   { code: "ti", label: "ትግርኛ (Tigrinya)", flag: "🇪🇷" },
 ];
 
+const cleanUrl = (url: any) => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed || trimmed.includes('undefined') || trimmed.includes('null')) return null;
+    if (trimmed.startsWith('http') || trimmed.startsWith('blob:')) return trimmed;
+    const normalized = trimmed.replace(/\\/g, '/');
+    const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    const path = normalized.startsWith('/') ? normalized : `/${normalized}`;
+    return `${base}${path}`;
+};
+
 const DARK_GRADIENTS = [
   'bg-gradient-to-br from-[#1e293b] to-[#0f172a]', // Slate
   'bg-gradient-to-br from-[#312e81] to-[#1e1b4b]', // Indigo
@@ -257,18 +268,35 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                             displayTitle = undefined;
                         }
 
+                        const mappedMedia = Array.isArray(p.media)
+                            ? p.media
+                                .map((m: any) => {
+                                    const type = m?.type || (typeof m?.mime === 'string' && m.mime.toLowerCase().includes('video') ? 'video' : 'image');
+                                    const url = cleanUrl(m?.url);
+                                    const thumbnail = cleanUrl(m?.thumbnail);
+                                    return url ? { url, type, thumbnail: thumbnail || undefined } : null;
+                                })
+                                .filter(Boolean) as Post['media']
+                            : [];
+
+                        const coverMedia = mappedMedia?.[0];
+                        const fallbackImage = cleanUrl(p?.image);
+                        const image = coverMedia
+                            ? (coverMedia.type === 'video' ? (coverMedia.thumbnail || fallbackImage || undefined) : coverMedia.url)
+                            : (fallbackImage || undefined);
+
                         return {
                             id: p._id || p.id,
                             user: {
                                 id: p.user?._id || 'u',
                                 _id: p.user?._id,
                                 name: p.user?.name || 'مستخدم',
-                                avatar: p.user?.avatar ? (p.user.avatar.startsWith('http') ? p.user.avatar : `${API_BASE_URL}${p.user.avatar}`) : null
+                                avatar: cleanUrl(p.user?.avatar)
                             },
                             timeAgo: p.createdAt ? getRelativeTime(p.createdAt) : 'الآن',
                             content: p.text || p.content || '',
-                            image: p.media && p.media.length > 0 ? (p.media[0].url.startsWith('http') ? p.media[0].url : `${API_BASE_URL}${p.media[0].url}`) : undefined,
-                            media: p.media ? p.media.map((m: any) => ({ url: m.url.startsWith('http') ? m.url : `${API_BASE_URL}${m.url}`, type: m.type, thumbnail: m.thumbnail })) : [],
+                            image: image,
+                            media: mappedMedia,
                             likes: 0,
                             comments: 0,
                             shares: 0,
@@ -459,13 +487,27 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                <Loader2 size={40} className="text-red-600 animate-spin" />
             </div>
           ) : posts.length > 0 ? (
-             posts.map((post) => (
+             posts.map((post) => {
+                const coverMedia = post.media?.[0];
+                const isVideo = coverMedia?.type === 'video' && !!coverMedia.url;
+                const coverImage = isVideo ? (coverMedia?.thumbnail || post.image) : (coverMedia?.url || post.image);
+
+                return (
                 <div key={post.id} className="relative bg-white dark:bg-[#1e1e1e] shadow-sm border-b border-gray-100 dark:border-gray-800">
                     
                     <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-900 group overflow-hidden">
-                        {post.image ? (
+                        {isVideo ? (
+                            <video
+                                src={coverMedia?.url}
+                                poster={coverMedia?.thumbnail || coverImage || undefined}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                loop
+                            />
+                        ) : coverImage ? (
                             <img 
-                                src={post.image} 
+                                src={coverImage} 
                                 alt={post.title || "Job Cover"} 
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                             />
@@ -598,8 +640,9 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                             </div>
                         </div>
                     </div>
-                </div>
-             ))
+                     </div>
+                 );
+                 })
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in fade-in zoom-in duration-300">
                 <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center border border-red-100 shadow-sm relative">
