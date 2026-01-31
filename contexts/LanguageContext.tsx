@@ -276,6 +276,8 @@ const translations = {
     video_wait: "يرجى الانتظار",
     video_dont_close: "لا تغلق التطبيق",
     video_watch_now: "يمكنك المشاهدة الآن",
+    video_upload_failed: "فشل رفع الفيديو، يرجى المحاولة مرة أخرى",
+    video_upload_https_required: "يجب أن يتم رفع الفيديو عبر اتصال آمن (HTTPS)",
 
     // Profile
     profile_posts: "منشور",
@@ -820,6 +822,8 @@ const translations = {
     video_wait: "Please wait",
     video_dont_close: "Don't close the app",
     video_watch_now: "You can watch now",
+    video_upload_failed: "Video upload failed. Please try again.",
+    video_upload_https_required: "Video uploads require a secure HTTPS connection.",
     
     // Profile
     profile_posts: "Posts",

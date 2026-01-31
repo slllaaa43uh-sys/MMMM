@@ -525,17 +525,198 @@ const AppContent: React.FC = () => {
     };
   };
 
-  const uploadFiles = async (files: File[]) => {
-    const formData = new FormData();
-    files.forEach(file => formData.append('files', file));
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/api/v1/upload/multiple`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.msg || 'فشل رفع الملفات');
+  const VIDEO_CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+  const VIDEO_CHUNK_THRESHOLD = 8 * 1024 * 1024; // 8MB
+  const LONG_VIDEO_SECONDS = 60;
+
+  const ensureHttpsOrThrow = () => {
+    const base = API_BASE_URL || window.location.origin;
+    const isLocalhost = base.startsWith('http://localhost') || base.startsWith('http://127.0.0.1');
+    if (!base.startsWith('https://') && !isLocalhost) {
+      throw new Error(t('video_upload_https_required'));
     }
-    const result = await response.json();
-    return result.files;
+  };
+
+  const isVideoFile = (file: File) => {
+    if (file.type?.startsWith('video')) return true;
+    return /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+  };
+
+  const getVideoDurationSeconds = (file: File) => new Promise<number>((resolve) => {
+    try {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        URL.revokeObjectURL(video.src);
+        resolve(duration);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(0);
+      };
+      video.src = URL.createObjectURL(file);
+    } catch {
+      resolve(0);
+    }
+  });
+
+  const compressVideoIfNeeded = async (file: File) => {
+    if (!isVideoFile(file)) return file;
+    if (file.size < 2 * 1024 * 1024) return file; // Skip tiny files
+
+    try {
+      const [{ FFmpeg }, { fetchFile }] = await Promise.all([
+        import('@ffmpeg/ffmpeg'),
+        import('@ffmpeg/util')
+      ]);
+
+      const ffmpeg = new FFmpeg();
+      await ffmpeg.load();
+
+      const inputName = `input-${Date.now()}.mp4`;
+      const outputName = `output-${Date.now()}.mp4`;
+
+      await ffmpeg.writeFile(inputName, await fetchFile(file));
+      await ffmpeg.exec([
+        '-i', inputName,
+        '-vcodec', 'libx264',
+        '-crf', '28',
+        '-preset', 'veryfast',
+        '-acodec', 'aac',
+        '-b:a', '96k',
+        '-movflags', '+faststart',
+        outputName
+      ]);
+
+      const data = await ffmpeg.readFile(outputName);
+      const fileData = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));
+      const arrayBuffer = fileData.buffer.slice(fileData.byteOffset, fileData.byteOffset + fileData.byteLength) as ArrayBuffer;
+      await ffmpeg.deleteFile(inputName);
+      await ffmpeg.deleteFile(outputName);
+
+      const compressedBlob = new Blob([arrayBuffer], { type: 'video/mp4' });
+      return new File([compressedBlob], file.name.replace(/\.[^/.]+$/, '') + '.mp4', { type: 'video/mp4' });
+    } catch (error) {
+      console.warn('Video compression failed, using original file.', error);
+      return file;
+    }
+  };
+
+  const shouldChunkVideo = async (file: File) => {
+    if (!isVideoFile(file)) return false;
+    if (file.size >= VIDEO_CHUNK_THRESHOLD) return true;
+    const duration = await getVideoDurationSeconds(file);
+    return duration >= LONG_VIDEO_SECONDS;
+  };
+
+  const normalizeUploadedFile = (fileResult: any, fallbackType: string) => {
+    if (!fileResult) return null;
+    return {
+      filePath: fileResult.filePath || fileResult.url || fileResult.path || fileResult.location,
+      fileType: fileResult.fileType || fileResult.type || fallbackType
+    };
+  };
+
+  const uploadFileChunked = async (file: File, token: string | null) => {
+    ensureHttpsOrThrow();
+    const totalChunks = Math.ceil(file.size / VIDEO_CHUNK_SIZE);
+    const uploadId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+      const start = chunkIndex * VIDEO_CHUNK_SIZE;
+      const end = Math.min(file.size, start + VIDEO_CHUNK_SIZE);
+      const chunk = file.slice(start, end);
+
+      const chunkForm = new FormData();
+      chunkForm.append('file', chunk, file.name);
+      chunkForm.append('uploadId', uploadId);
+      chunkForm.append('chunkIndex', String(chunkIndex));
+      chunkForm.append('totalChunks', String(totalChunks));
+      chunkForm.append('fileName', file.name);
+      chunkForm.append('fileType', file.type || 'video/mp4');
+
+      const chunkResponse = await fetch(`${API_BASE_URL}/api/v1/upload/chunk`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: chunkForm
+      });
+
+      if (!chunkResponse.ok) {
+        const errorData = await chunkResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.msg || t('video_upload_failed'));
+      }
+    }
+
+    const completeResponse = await fetch(`${API_BASE_URL}/api/v1/upload/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ uploadId, fileName: file.name, fileType: file.type || 'video/mp4' })
+    });
+
+    if (!completeResponse.ok) {
+      const errorData = await completeResponse.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.msg || t('video_upload_failed'));
+    }
+
+    const result = await completeResponse.json().catch(() => ({}));
+    const normalized = normalizeUploadedFile(result.file || result.files?.[0] || result, file.type || 'video');
+    if (!normalized?.filePath) {
+      throw new Error(t('video_upload_failed'));
+    }
+    return normalized;
+  };
+
+  const uploadFileDirect = async (file: File, token: string | null) => {
+    const formData = new FormData();
+    formData.append('files', file);
+    const response = await fetch(`${API_BASE_URL}/api/v1/upload/multiple`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const fallbackMessage = isVideoFile(file) ? t('video_upload_failed') : 'فشل رفع الملفات';
+      throw new Error(errorData.message || errorData.msg || fallbackMessage);
+    }
+    const result = await response.json().catch(() => ({}));
+    const normalized = normalizeUploadedFile(result.file || result.files?.[0] || result, file.type || 'image');
+    if (!normalized?.filePath) {
+      throw new Error(t('video_upload_failed'));
+    }
+    return normalized;
+  };
+
+  const uploadFiles = async (files: File[]) => {
+    ensureHttpsOrThrow();
+    const token = localStorage.getItem('token');
+    const uploadedResults: Array<{ filePath: string; fileType: string }> = [];
+
+    for (const originalFile of files) {
+      const processedFile = await compressVideoIfNeeded(originalFile);
+      const shouldChunk = await shouldChunkVideo(processedFile);
+
+      if (shouldChunk) {
+        try {
+          const chunked = await uploadFileChunked(processedFile, token);
+          uploadedResults.push(chunked);
+          continue;
+        } catch (error) {
+          console.warn('Chunk upload failed, falling back to direct upload.', error);
+        }
+      }
+
+      const direct = await uploadFileDirect(processedFile, token);
+      uploadedResults.push(direct);
+    }
+
+    return uploadedResults;
   };
 
   const handlePostSubmit = async (postPayload: any) => {
@@ -655,35 +836,60 @@ const AppContent: React.FC = () => {
           });
       }, 300);
 
-      try {
+        try {
           const token = localStorage.getItem('token');
           const formData = new FormData();
+
+          if (storyPayload.type === 'media') {
+            ensureHttpsOrThrow();
+          }
 
           if (storyPayload.type === 'text') {
               formData.append('text', storyPayload.text || '');
               if (storyPayload.backgroundColor) {
                   formData.append('backgroundColor', storyPayload.backgroundColor);
               }
-          } else if (storyPayload.type === 'media' && storyPayload.file) {
-              formData.append('file', storyPayload.file);
+            } else if (storyPayload.type === 'media' && storyPayload.file) {
+              let storyFile: File = storyPayload.file;
+              let uploadedStoryMedia: { filePath: string; fileType: string } | null = null;
+
+              if (isVideoFile(storyFile)) {
+                storyFile = await compressVideoIfNeeded(storyFile);
+                if (await shouldChunkVideo(storyFile)) {
+                  try {
+                    uploadedStoryMedia = await uploadFileChunked(storyFile, token);
+                  } catch (error) {
+                    console.warn('Story chunk upload failed, falling back to direct upload.', error);
+                  }
+                }
+              }
+
+              if (uploadedStoryMedia?.filePath) {
+                formData.append('mediaUrl', uploadedStoryMedia.filePath);
+                formData.append('mediaType', uploadedStoryMedia.fileType || (isVideoFile(storyFile) ? 'video' : 'image'));
+                formData.append('isChunked', 'true');
+              } else {
+                formData.append('file', storyFile);
+              }
+
               if (storyPayload.text) formData.append('text', storyPayload.text);
               if (storyPayload.trimData) {
-                  formData.append('trimStart', storyPayload.trimData.start.toString());
-                  formData.append('trimEnd', storyPayload.trimData.end.toString());
+                formData.append('trimStart', storyPayload.trimData.start.toString());
+                formData.append('trimEnd', storyPayload.trimData.end.toString());
               }
               if (storyPayload.overlays && storyPayload.overlays.length > 0) {
-                  formData.append('overlays', JSON.stringify(storyPayload.overlays));
+                formData.append('overlays', JSON.stringify(storyPayload.overlays));
               }
               if (storyPayload.filter) {
-                  formData.append('filter', storyPayload.filter);
+                formData.append('filter', storyPayload.filter);
               }
               if (storyPayload.mediaScale) {
-                  formData.append('mediaScale', storyPayload.mediaScale.toString());
+                formData.append('mediaScale', storyPayload.mediaScale.toString());
               }
               if (storyPayload.objectFit) {
-                  formData.append('objectFit', storyPayload.objectFit);
+                formData.append('objectFit', storyPayload.objectFit);
               }
-          }
+            }
 
           const response = await fetch(`${API_BASE_URL}/api/v1/stories`, {
               method: 'POST',
