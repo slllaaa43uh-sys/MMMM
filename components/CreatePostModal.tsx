@@ -76,11 +76,12 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setIsDrawerOpen(false);
-      const newFileObjects = Array.from(e.target.files);
-      const newMediaURLs = newFileObjects.map((file: File) => ({
-        url: URL.createObjectURL(file),
-        type: file.type.startsWith('video') ? 'video' as const : 'image' as const
-      }));
+        const newFileObjects = Array.from(e.target.files).filter((file) => file.type.startsWith('image/'));
+        if (newFileObjects.length === 0) return;
+        const newMediaURLs = newFileObjects.map((file: File) => ({
+          url: URL.createObjectURL(file),
+          type: 'image' as const
+        }));
       setMediaFileObjects(prev => [...prev, ...newFileObjects]);
       setMediaFiles(prev => [...prev, ...newMediaURLs]);
     }
@@ -386,7 +387,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
                     <div className="bg-green-200 dark:bg-green-800 p-2 rounded-full"><ImageIcon size={24} className="text-green-700 dark:text-green-200" /></div>
                     <span className="text-xs font-bold text-green-800 dark:text-green-300">{t('post_media')}</span>
                   </button>
-                  <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleMediaUpload} />
+                  <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleMediaUpload} />
 
                   <button onClick={handleAutoLocation} className="flex flex-col items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl p-4 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
                     <div className="bg-red-200 dark:bg-red-800 p-2 rounded-full"><MapPin size={24} className="text-red-700 dark:text-red-200" /></div>
