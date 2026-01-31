@@ -525,7 +525,7 @@ const AppContent: React.FC = () => {
     };
   };
 
-  const VIDEO_CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+  const VIDEO_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB حسب الطلب
   const VIDEO_CHUNK_THRESHOLD = 8 * 1024 * 1024; // 8MB
   const LONG_VIDEO_SECONDS = 60;
 
@@ -618,6 +618,7 @@ const AppContent: React.FC = () => {
     };
   };
 
+  // رفع الفيديو المجزأ حسب المسارات الجديدة
   const uploadFileChunked = async (file: File, token: string | null) => {
     ensureHttpsOrThrow();
     const totalChunks = Math.ceil(file.size / VIDEO_CHUNK_SIZE);
@@ -631,37 +632,52 @@ const AppContent: React.FC = () => {
       const chunk = file.slice(start, end);
 
       const chunkForm = new FormData();
-      chunkForm.append('file', chunk, file.name);
+      chunkForm.append('chunk', chunk, file.name); // اسم الحقل chunk
       chunkForm.append('uploadId', uploadId);
       chunkForm.append('chunkIndex', String(chunkIndex));
       chunkForm.append('totalChunks', String(totalChunks));
-      chunkForm.append('fileName', file.name);
-      chunkForm.append('fileType', file.type || 'video/mp4');
 
-      const chunkResponse = await fetch(`${API_BASE_URL}/api/v1/upload/chunk`, {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: chunkForm
-      });
+      // HTTPS فقط
+      const url = `${API_BASE_URL}/api/v1/upload/video/chunk`;
+      let chunkResponse;
+      try {
+        chunkResponse = await fetch(url, {
+          method: 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          body: chunkForm
+        });
+      } catch (err) {
+        throw new Error(t('video_upload_failed') + ` (network, chunk ${chunkIndex + 1})`);
+      }
 
       if (!chunkResponse.ok) {
         const errorData = await chunkResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.msg || t('video_upload_failed'));
+        throw new Error((errorData.message || errorData.msg || t('video_upload_failed')) + ` (chunk ${chunkIndex + 1})`);
       }
+
+      // تحديث progress bar
+      setPostUploadProgress(Math.round(((chunkIndex + 1) / totalChunks) * 100));
     }
 
-    const completeResponse = await fetch(`${API_BASE_URL}/api/v1/upload/complete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ uploadId, fileName: file.name, fileType: file.type || 'video/mp4' })
-    });
+    // بعد رفع كل الأجزاء، أرسل طلب التجميع
+    const completeUrl = `${API_BASE_URL}/api/v1/upload/video/complete`;
+    let completeResponse;
+    try {
+      completeResponse = await fetch(completeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ uploadId, filename: file.name, mimetype: file.type || 'video/mp4' })
+      });
+    } catch (err) {
+      throw new Error(t('video_upload_failed') + ' (complete)');
+    }
 
     if (!completeResponse.ok) {
       const errorData = await completeResponse.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.msg || t('video_upload_failed'));
+      throw new Error((errorData.message || errorData.msg || t('video_upload_failed')) + ' (complete)');
     }
 
     const result = await completeResponse.json().catch(() => ({}));
@@ -669,6 +685,7 @@ const AppContent: React.FC = () => {
     if (!normalized?.filePath) {
       throw new Error(t('video_upload_failed'));
     }
+    setPostUploadProgress(100);
     return normalized;
   };
 
