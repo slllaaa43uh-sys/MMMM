@@ -122,31 +122,55 @@ const AppContent: React.FC = () => {
   // --- NOTIFICATIONS & DEEP LINKING SETUP ---
   
   // 1. Handle Notification Navigation
-  const handleDeepLink = (data: any) => {
+    const handleDeepLink = (data: any) => {
       console.log('🚀 Handling Deep Link Data:', data);
       
       const postId = data.postId || data.post_id;
       const videoId = data.videoId || data.video_id || data.shortId;
       const userId = data.userId || data.user_id;
+      const type = typeof data.type === 'string' ? data.type : '';
+      const category = typeof data.category === 'string' ? data.category : '';
+      const displayPage = typeof data.displayPage === 'string' ? data.displayPage : '';
+      const postRelatedTypes = new Set(['like', 'comment', 'newPost', 'mention']);
+      const isPostRelated = postRelatedTypes.has(type) || category === 'post' || displayPage.toLowerCase() === 'postdetail';
+
+      const openPostInline = (targetId: string) => {
+        setActiveTab('home');
+        setIsNotificationsOpen(false);
+        setSelectedNotification(null);
+        setViewingProfileId(null);
+        setIsSettingsOpen(false);
+        setSuggestedViewType(null);
+        setIsSearchOpen(false);
+        setIsAIChatOpen(false);
+        setIsLocationDrawerOpen(false);
+        setIsCreateModalOpen(false);
+        setIsCreateStoryOpen(false);
+        setIsCVWizardOpen(false);
+        setScrollTargetPostId(targetId);
+        setHighlightPostId(targetId);
+      };
       
       // Global Jobs Handling
-      if (data.category === 'global_jobs' || data.type === 'global_jobs') {
-          setActiveTab('world');
-          setIsNotificationsOpen(false);
-          return;
+      if (category === 'global_jobs' || type === 'global_jobs') {
+        setActiveTab('world');
+        setIsNotificationsOpen(false);
+        return;
       }
 
-      if (postId) {
-          // Open Post Detail
-          setSelectedNotification({ targetId: postId, category: 'post' });
+      if (postId && isPostRelated) {
+        openPostInline(postId);
+      } else if (postId) {
+        // Open Post Detail
+        setSelectedNotification({ targetId: postId, category: 'post' });
       } else if (videoId) {
-          // Open Video Detail
-          setSelectedNotification({ targetId: videoId, category: 'video' });
+        // Open Video Detail
+        setSelectedNotification({ targetId: videoId, category: 'video' });
       } else if (userId) {
-          // Open Profile
-          setViewingProfileId(userId);
+        // Open Profile
+        setViewingProfileId(userId);
       }
-  };
+    };
 
   // 2. Initialize Push Logic
   useEffect(() => {
@@ -301,6 +325,10 @@ const AppContent: React.FC = () => {
   const [isUploadingStory, setIsUploadingStory] = useState(false);
   const [storyUploadProgress, setStoryUploadProgress] = useState(0); 
   const [pendingStory, setPendingStory] = useState<{ type: 'text'|'image'|'video', content: string, color?: string } | null>(null);
+
+  const [scrollTargetPostId, setScrollTargetPostId] = useState<string | null>(null);
+  const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
+  const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [currentLocation, setCurrentLocation] = useState<{ country: string; city: string | null }>({ country: 'عام', city: null });
 
@@ -883,6 +911,21 @@ const AppContent: React.FC = () => {
     fetchFeedPosts(1, true);
   }, [token, currentLocation, isOnline]); // Refetch when coming online
 
+  useEffect(() => {
+    if (!scrollTargetPostId || posts.length === 0) return;
+    const node = postRefs.current[scrollTargetPostId];
+    if (node) {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setScrollTargetPostId(null);
+    }
+  }, [scrollTargetPostId, posts]);
+
+  useEffect(() => {
+    if (!highlightPostId) return;
+    const timeout = window.setTimeout(() => setHighlightPostId(null), 2500);
+    return () => window.clearTimeout(timeout);
+  }, [highlightPostId]);
+
   const handleLoadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
@@ -896,6 +939,29 @@ const AppContent: React.FC = () => {
           setActiveTab('world');
           setIsNotificationsOpen(false);
           return;
+      }
+      const postId = notif.postId || notif.post_id || notif.targetId;
+      const type = typeof notif.type === 'string' ? notif.type : '';
+      const category = typeof notif.category === 'string' ? notif.category : '';
+      const displayPage = typeof notif.displayPage === 'string' ? notif.displayPage : '';
+      const postRelatedTypes = new Set(['like', 'comment', 'newPost', 'mention']);
+      const isPostRelated = postRelatedTypes.has(type) || category === 'post' || displayPage.toLowerCase() === 'postdetail';
+      if (postId && isPostRelated) {
+        setActiveTab('home');
+        setIsNotificationsOpen(false);
+        setSelectedNotification(null);
+        setViewingProfileId(null);
+        setIsSettingsOpen(false);
+        setSuggestedViewType(null);
+        setIsSearchOpen(false);
+        setIsAIChatOpen(false);
+        setIsLocationDrawerOpen(false);
+        setIsCreateModalOpen(false);
+        setIsCreateStoryOpen(false);
+        setIsCVWizardOpen(false);
+        setScrollTargetPostId(postId);
+        setHighlightPostId(postId);
+        return;
       }
       // Default handling
       setSelectedNotification(notif);
@@ -1012,7 +1078,15 @@ const AppContent: React.FC = () => {
               ) : (
                 <>
                   <div className="flex flex-col gap-[1px] mt-0 bg-gray-100 dark:bg-gray-800">
-                    {posts.map(post => <PostCard key={post.id} post={post} onReport={handleReport} onProfileClick={handleOpenProfile} isActive={isHomeActive} />)}
+                    {posts.map(post => (
+                      <div
+                        key={post.id}
+                        ref={(el) => { postRefs.current[post.id] = el; }}
+                        className={highlightPostId === post.id ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-100 dark:ring-offset-gray-800 animate-pulse' : ''}
+                      >
+                        <PostCard post={post} onReport={handleReport} onProfileClick={handleOpenProfile} isActive={isHomeActive} />
+                      </div>
+                    ))}
                   </div>
                   
                   {/* LOAD MORE BUTTON */}
