@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 // Updated Config
 const firebaseConfig = {
@@ -33,6 +34,13 @@ try {
   console.error("Firebase Initialization Error:", error);
 }
 
+// Initialize Google Auth Native
+GoogleAuth.initialize({
+  clientId: '951669845862-ijkmvh127cro19u3d3gkmhb3a2t4l2vi.apps.googleusercontent.com',
+  scopes: ['profile', 'email'],
+  grantOfflineAccess: true,
+});
+
 // Auth & Google Provider
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -40,4 +48,4 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-export { app, messaging, getToken, onMessage };
+export { app, messaging, getToken, onMessage, GoogleAuth };

@@ -5,8 +5,8 @@ import { Lock, Mail, ArrowLeft, X, User, Building2, ChevronRight, Check, ArrowRi
 import { useLanguage } from '../contexts/LanguageContext';
 import { ARAB_LOCATIONS } from '../data/locations';
 import Logo from './Logo';
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase-init';
+import { GoogleAuth } from '../firebase-init';
+import { Capacitor } from '@capacitor/core';
 
 interface LoginPageProps {
   onLoginSuccess: (token: string) => void;
@@ -223,11 +223,31 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
       setGoogleLoading(true);
       setError(null);
       
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      // استخدام Native Google Sign-In للتطبيق أو Web للمتصفح
+      const isNative = Capacitor.isNativePlatform();
       
-      const idToken = await user.getIdToken();
+      let idToken: string;
+      let user: any;
       
+      if (isNative) {
+        // Native Google Sign-In (Android/iOS)
+        const result = await GoogleAuth.signIn();
+        idToken = result.authentication.idToken;
+        user = {
+          displayName: result.name,
+          email: result.email,
+          photoURL: result.imageUrl
+        };
+      } else {
+        // Web Google Sign-In (Browser)
+        const { signInWithPopup } = await import('firebase/auth');
+        const { auth, googleProvider } = await import('../firebase-init');
+        const result = await signInWithPopup(auth, googleProvider);
+        idToken = await result.user.getIdToken();
+        user = result.user;
+      }
+      
+      // إرسال ID Token للسيرفر
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/google-signin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -530,9 +550,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
   const selectedPhoneCode = regCountry ? COUNTRY_CODES[regCountry] : "";
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center">
       {/* Mobile Container */}
-      <div className="w-full max-w-[430px] min-h-screen bg-white flex flex-col relative overflow-hidden shadow-2xl">
+      <div className="w-full min-h-screen bg-white flex flex-col relative overflow-hidden">
       
       {/* --- Hero Image Section --- */}
       <div className="relative w-full h-[30vh] overflow-hidden flex-shrink-0">
@@ -599,7 +619,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
              <p className="text-gray-500 text-xs font-medium">{t('login_subtitle')}</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-2.5 w-full max-w-sm mx-auto">
+          <form onSubmit={handleLogin} className="space-y-2.5 w-full px-6">
             
             <div className="space-y-0.5">
                 <label className="text-xs font-bold text-gray-700 px-1">{t('email_label')}</label>
@@ -660,7 +680,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
             </button>
           </form>
 
-          <div className="mt-3 flex flex-col items-center gap-2 w-full max-w-sm mx-auto">
+          <div className="mt-3 flex flex-col items-center gap-2 w-full px-6">
              <button 
                 type="button"
                 onClick={() => setIsForgotPasswordOpen(true)} 
