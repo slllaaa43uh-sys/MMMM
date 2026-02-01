@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار API - حالة الحراج</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        input, button {
+            width: 100%;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            border-color: #4caf50;
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error {
+            border-color: #f44336;
+            background: #ffebee;
+            color: #c62828;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin: 2px;
+        }
+        .badge-sold {
+            background: #10b981;
+            color: white;
+        }
+        .badge-available {
+            background: #3b82f6;
+            color: white;
+        }
+        .badge-haraj {
+            background: #f59e0b;
+            color: white;
+        }
+        .post-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .post-card h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .post-info {
+            font-size: 12px;
+            color: #666;
+            margin: 5px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 اختبار API - حالة الحراج</h1>
+            <p>أداة لفحص البيانات القادمة من الواجهة الخلفية</p>
+        </div>
+        
+        <div class="content">
+            <!-- Section 1: API URL -->
+            <div class="section">
+                <h2>⚙️ إعدادات API</h2>
+                <input type="text" id="apiUrl" placeholder="مثال: https://api.example.com" value="https://cuddly-space-doodle-jjvgx7x5jqrx25p4g-3000.app.github.dev">
+                <input type="text" id="token" placeholder="رمز المصادقة (Token) - اختياري">
+            </div>
+
+            <!-- Section 2: Test Posts -->
+            <div class="section">
+                <h2>📝 اختبار جلب المنشورات</h2>
+                <button onclick="fetchPosts()">🔄 جلب المنشورات</button>
+                <div id="postsResult" class="result" style="display:none;"></div>
+            </div>
+
+            <!-- Section 3: Test Category -->
+            <div class="section">
+                <h2>🏷️ اختبار فئة الحراج</h2>
+                <input type="text" id="category" placeholder="مثال: سيارات" value="سيارات">
+                <button onclick="fetchByCategory()">🔍 جلب حسب الفئة</button>
+                <div id="categoryResult" class="result" style="display:none;"></div>
+            </div>
+
+            <!-- Section 4: Update Status -->
+            <div class="section">
+                <h2>✏️ تحديث حالة منشور</h2>
+                <input type="text" id="postId" placeholder="معرف المنشور (Post ID)">
+                <select id="newStatus" style="width: 100%; padding: 12px; margin: 8px 0; border: 2px solid #ddd; border-radius: 8px;">
+                    <option value="available">متاح (Available)</option>
+                    <option value="sold">تم البيع (Sold)</option>
+                </select>
+                <button onclick="updateStatus()">💾 تحديث الحالة</button>
+                <div id="updateResult" class="result" style="display:none;"></div>
+            </div>
+
+            <!-- Section 5: Check Specific Post -->
+            <div class="section">
+                <h2>🔎 فحص منشور محدد</h2>
+                <input type="text" id="checkPostId" placeholder="معرف المنشور">
+                <button onclick="checkPost()">✓ فحص</button>
+                <div id="checkResult" class="result" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const HARAJ_CATEGORIES = [
+            'سيارات', 'عقارات', 'أجهزة منزلية', 'أثاث ومفروشات',
+            'جوالات', 'لابتوبات وكمبيوتر', 'كاميرات وتصوير', 'ألعاب فيديو',
+            'ملابس وموضة', 'ساعات ومجوهرات', 'حيوانات أليفة', 'طيور',
+            'معدات ثقيلة', 'قطع غيار', 'تحف ومقتنيات', 'كتب ومجلات',
+            'أدوات رياضية', 'مستلزمات أطفال', 'خيم وتخييم', 'أرقام مميزة',
+            'نقل عفش', 'أدوات أخرى'
+        ];
+
+        function getHeaders() {
+            const token = document.getElementById('token').value;
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            return headers;
+        }
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value.replace(/\/$/, '');
+        }
+
+        function showLoading(elementId) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = 'result';
+            el.innerHTML = '<div class="loading"><div class="spinner"></div><p>جاري التحميل...</p></div>';
+        }
+
+        function showResult(elementId, data, isError = false) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = isError ? 'result error' : 'result success';
+            el.textContent = JSON.stringify(data, null, 2);
+        }
+
+        function isHarajPost(post) {
+            if (post.type === 'haraj') return true;
+            return post.category && HARAJ_CATEGORIES.includes(post.category);
+        }
+
+        function renderPost(post) {
+            const isHaraj = isHarajPost(post);
+            const badges = [];
+            
+            if (isHaraj) badges.push('<span class="badge badge-haraj">حراج</span>');
+            if (post.harajStatus === 'sold') badges.push('<span class="badge badge-sold">تم البيع ✓</span>');
+            if (post.harajStatus === 'available') badges.push('<span class="badge badge-available">متاح</span>');
+
+            return `
+                <div class="post-card">
+                    <h3>${post.text || post.content || 'بدون نص'}</h3>
+                    <div class="post-info">
+                        <strong>ID:</strong> ${post._id || post.id}<br>
+                        <strong>Category:</strong> ${post.category || 'غير محدد'}<br>
+                        <strong>Type:</strong> ${post.type || 'غير محدد'}<br>
+                        <strong>Haraj Status:</strong> ${post.harajStatus || 'غير محدد'}<br>
+                        <strong>Is Haraj?</strong> ${isHaraj ? '✓ نعم' : '✗ لا'}
+                    </div>
+                    <div style="margin-top: 10px;">${badges.join(' ')}</div>
+                    ${!post.harajStatus && isHaraj ? '<p style="color: red; margin-top: 10px;">⚠️ تحذير: منشور حراج بدون harajStatus!</p>' : ''}
+                    ${post.type !== 'haraj' && isHaraj ? '<p style="color: orange; margin-top: 10px;">⚠️ تحذير: الفئة حراج لكن type ليس haraj!</p>' : ''}
+                </div>
+            `;
+        }
+
+        async function fetchPosts() {
+            showLoading('postsResult');
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/posts`, {
+                    headers: getHeaders()
+                });
+                const data = await response.json();
+                
+                const el = document.getElementById('postsResult');
+                el.style.display = 'block';
+                el.className = 'result success';
+                
+                const posts = data.posts || data;
+                if (!Array.isArray(posts) || posts.length === 0) {
+                    el.innerHTML = '<p>لا توجد منشورات</p>';
+                    return;
+                }
+
+                let html = `<h3>عدد المنشورات: ${posts.length}</h3>`;
+                const harajPosts = posts.filter(isHarajPost);
+                const soldPosts = harajPosts.filter(p => p.harajStatus === 'sold');
+                
+                html += `<p><strong>منشورات الحراج:</strong> ${harajPosts.length}</p>`;
+                html += `<p><strong>تم بيعها:</strong> ${soldPosts.length}</p><hr>`;
+                
+                posts.slice(0, 10).forEach(post => {
+                    html += renderPost(post);
+                });
+
+                if (posts.length > 10) {
+                    html += `<p style="text-align: center; color: #999; margin-top: 15px;">... و ${posts.length - 10} منشور آخر</p>`;
+                }
+
+                el.innerHTML = html;
+            } catch (error) {
+                showResult('postsResult', { error: error.message }, true);
+            }
+        }
+
+        async function fetchByCategory() {
+            const category = document.getElementById('category').value;
+            showLoading('categoryResult');
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/posts?category=${encodeURIComponent(category)}`, {
+                    headers: getHeaders()
+                });
+                const data = await response.json();
+                
+                const el = document.getElementById('categoryResult');
+                el.style.display = 'block';
+                el.className = 'result success';
+                
+                const posts = data.posts || data;
+                if (!Array.isArray(posts) || posts.length === 0) {
+                    el.innerHTML = `<p>لا توجد منشورات في فئة "${category}"</p>`;
+                    return;
+                }
+
+                let html = `<h3>فئة: ${category} (${posts.length} منشور)</h3><hr>`;
+                posts.forEach(post => {
+                    html += renderPost(post);
+                });
+
+                el.innerHTML = html;
+            } catch (error) {
+                showResult('categoryResult', { error: error.message }, true);
+            }
+        }
+
+        async function updateStatus() {
+            const postId = document.getElementById('postId').value;
+            const status = document.getElementById('newStatus').value;
+            
+            if (!postId) {
+                alert('الرجاء إدخال معرف المنشور');
+                return;
+            }
+
+            showLoading('updateResult');
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/posts/${postId}/haraj-status`, {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ status })
+                });
+                const data = await response.json();
+                showResult('updateResult', data, !response.ok);
+            } catch (error) {
+                showResult('updateResult', { error: error.message }, true);
+            }
+        }
+
+        async function checkPost() {
+            const postId = document.getElementById('checkPostId').value;
+            
+            if (!postId) {
+                alert('الرجاء إدخال معرف المنشور');
+                return;
+            }
+
+            showLoading('checkResult');
+            try {
+                const response = await fetch(`${getApiUrl()}/api/v1/posts/${postId}`, {
+                    headers: getHeaders()
+                });
+                const data = await response.json();
+                
+                const el = document.getElementById('checkResult');
+                el.style.display = 'block';
+                el.className = 'result success';
+                
+                const post = data.post || data;
+                el.innerHTML = renderPost(post);
+            } catch (error) {
+                showResult('checkResult', { error: error.message }, true);
+            }
+        }
+
+        // Auto-load posts on page load
+        window.onload = () => {
+            console.log('🔍 أداة اختبار API جاهزة');
+            console.log('📋 فئات الحراج:', HARAJ_CATEGORIES);
+        };
+    </script>
+</body>
+</html>

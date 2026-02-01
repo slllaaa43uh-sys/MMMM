@@ -7,9 +7,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 interface CreatePostBarProps {
   onOpen: () => void;
   onLoginRequest?: () => void; // New prop for guest handling
+  isVisible?: boolean; // New prop for visibility control
 }
 
-const CreatePostBar: React.FC<CreatePostBarProps> = ({ onOpen, onLoginRequest }) => {
+const CreatePostBar: React.FC<CreatePostBarProps> = ({ onOpen, onLoginRequest, isVisible = true }) => {
   const { t, language } = useLanguage();
   const token = localStorage.getItem('token');
   const userName = localStorage.getItem('userName') || 'مستخدم';
@@ -33,7 +34,9 @@ const CreatePostBar: React.FC<CreatePostBarProps> = ({ onOpen, onLoginRequest })
         : "What's on your mind, Guest? Log in");
 
   return (
-    <div className="bg-white px-4 py-3 shadow-sm border-b border-gray-100">
+    <div className={`bg-white px-4 py-3 shadow-sm border-b border-gray-100 transition-all duration-200 ${
+      isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+    }`}>
       <div className="flex items-center gap-3">
         <Avatar 
           name={userName}

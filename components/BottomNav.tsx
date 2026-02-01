@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Home, Briefcase, Store, Globe, Plus } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Logo from './Logo';
+import { BadgeCounterService } from '../services/badgeCounterService';
 
 interface BottomNavProps {
   activeTab: string;
@@ -12,6 +13,53 @@ interface BottomNavProps {
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onOpenCreate }) => {
   const { t } = useLanguage();
+  
+  // Badge counts state
+  const [jobsCount, setJobsCount] = useState(0);
+  const [harajCount, setHarajCount] = useState(0);
+  const [urgentCount, setUrgentCount] = useState(0);
+  const [globalCount, setGlobalCount] = useState(0);
+  
+  console.log('🔵 [BottomNav] Component rendered');
+  console.log('🔵 [BottomNav] Current badge counts:', { jobsCount, harajCount, urgentCount, globalCount });
+  
+  // Fetch badge counts on mount and poll
+  useEffect(() => {
+    console.log('🔵 [BottomNav] useEffect triggered - Starting badge count fetch');
+    
+    const updateCounts = () => {
+      console.log('🔵 [BottomNav] updateCounts called');
+      
+      const jobs = BadgeCounterService.getJobsTotalCount();
+      const haraj = BadgeCounterService.getHarajTotalCount();
+      const urgent = BadgeCounterService.getUrgentTotalCount();
+      const global = BadgeCounterService.getGlobalJobsTotalCount();
+      
+      console.log('🔵 [BottomNav] Raw values from service:', { jobs, haraj, urgent, global });
+      
+      setJobsCount(jobs);
+      setHarajCount(haraj);
+      setUrgentCount(urgent);
+      setGlobalCount(global);
+      
+      console.log('🔵 [BottomNav] State updated with:', { jobs, haraj, urgent, global });
+    };
+    
+    // Initial fetch
+    updateCounts();
+    console.log('🔵 [BottomNav] Initial fetch completed');
+    
+    // Poll every 10 seconds to update badges
+    const interval = setInterval(() => {
+      console.log('🔵 [BottomNav] Polling for badge updates...');
+      updateCounts();
+    }, 10000);
+    
+    return () => {
+      console.log('🔵 [BottomNav] Cleaning up interval');
+      clearInterval(interval);
+    };
+  }, []);
   
   // YouTube style: ~48px height content + safe area
   const navContainerClass = "bg-white border-t border-gray-100 pb-safe fixed bottom-0 w-full max-w-md z-50";
@@ -47,44 +95,95 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onOpenCr
           <span className="text-[10px] leading-none tracking-tight">{t('nav_home')}</span>
         </button>
 
-        {/* Jobs (Wazaef) */}
+        {/* Jobs (Wazaef) - WITH BADGE */}
         <button 
-          onClick={() => setActiveTab('jobs')}
+          onClick={() => {
+            console.log('🔵 [BottomNav] Jobs button clicked');
+            setActiveTab('jobs');
+          }}
           className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('jobs')}`}
         >
-          <Briefcase size={24} strokeWidth={getIconStroke('jobs')} />
+          <div className="relative">
+            <Briefcase size={24} strokeWidth={getIconStroke('jobs')} />
+            {jobsCount > 0 && (
+              <span 
+                className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-bold px-1"
+                style={{ fontSize: '10px', lineHeight: '1' }}
+              >
+                {jobsCount > 99 ? '99+' : jobsCount}
+              </span>
+            )}
+          </div>
           <span className="text-[10px] leading-none tracking-tight">{t('nav_jobs')}</span>
         </button>
 
-        {/* CENTER BUTTON: URGENT JOBS - Sized to match icons */}
+        {/* CENTER BUTTON: URGENT JOBS - WITH BADGE */}
         <button 
-          onClick={() => setActiveTab('urgent')}
+          onClick={() => {
+            console.log('🔵 [BottomNav] Urgent button clicked');
+            setActiveTab('urgent');
+          }}
           className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('urgent')}`}
         >
-          {/* Container size matches icon optical size (24px~28px) */}
-          <div className="w-6 h-6 flex items-center justify-center">
-             <Logo className="w-full h-full" />
+          <div className="relative">
+            <div className="w-6 h-6 flex items-center justify-center">
+              <Logo className="w-full h-full" />
+            </div>
+            {urgentCount > 0 && (
+              <span 
+                className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-bold px-1"
+                style={{ fontSize: '10px', lineHeight: '1' }}
+              >
+                {urgentCount > 99 ? '99+' : urgentCount}
+              </span>
+            )}
           </div>
           <span className="text-[10px] leading-none tracking-tight">
             {t('nav_urgent')}
           </span>
         </button>
 
-        {/* World (Global Jobs) */}
+        {/* World (Global Jobs) - WITH BADGE */}
         <button 
-          onClick={() => setActiveTab('world')}
+          onClick={() => {
+            console.log('🔵 [BottomNav] Global button clicked');
+            setActiveTab('world');
+          }}
           className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('world')}`}
         >
-          <Globe size={24} strokeWidth={getIconStroke('world')} />
+          <div className="relative">
+            <Globe size={24} strokeWidth={getIconStroke('world')} />
+            {globalCount > 0 && (
+              <span 
+                className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-bold px-1"
+                style={{ fontSize: '10px', lineHeight: '1' }}
+              >
+                {globalCount > 99 ? '99+' : globalCount}
+              </span>
+            )}
+          </div>
           <span className="text-[10px] leading-none tracking-tight">{t('nav_world')}</span>
         </button>
 
-         {/* Haraj (Marketplace) */}
+         {/* Haraj (Marketplace) - WITH BADGE */}
          <button 
-          onClick={() => setActiveTab('haraj')}
+          onClick={() => {
+            console.log('🔵 [BottomNav] Haraj button clicked');
+            setActiveTab('haraj');
+          }}
           className={`flex-1 flex flex-col items-center justify-center gap-[3px] active:bg-gray-100/50 h-full ${getButtonClass('haraj')}`}
         >
-          <Store size={24} strokeWidth={getIconStroke('haraj')} />
+          <div className="relative">
+            <Store size={24} strokeWidth={getIconStroke('haraj')} />
+            {harajCount > 0 && (
+              <span 
+                className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-bold px-1"
+                style={{ fontSize: '10px', lineHeight: '1' }}
+              >
+                {harajCount > 99 ? '99+' : harajCount}
+              </span>
+            )}
+          </div>
           <span className="text-[10px] leading-none tracking-tight">{t('nav_haraj')}</span>
         </button>
 

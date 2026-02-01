@@ -531,6 +531,15 @@ const translations = {
     status_mark_hired: 'تعيين كـ "تم التوظيف"',
     status_mark_negotiating: 'تعيين كـ "قيد المفاوضة"',
     status_reopen: "إعادة فتح",
+    
+    // Haraj Status Badges
+    status_sold: "تم البيع",
+    status_available: "متاح",
+    status_deleted: "محذوف",
+    status_mark_sold: 'تعيين كـ "تم البيع"',
+    status_mark_available: 'تعيين كـ "متاح"',
+    delete_post: "حذف المنشور",
+    link_copied: "تم نسخ الرابط",
 
     // Haraj View
     haraj_latest_offers: "أحدث العروض المضافة",
@@ -1077,6 +1086,15 @@ const translations = {
     status_mark_hired: "Mark as Hired",
     status_mark_negotiating: "Mark as Negotiating",
     status_reopen: "Re-open",
+    
+    // Haraj Status Badges
+    status_sold: "Sold",
+    status_available: "Available",
+    status_deleted: "Deleted",
+    status_mark_sold: "Mark as Sold",
+    status_mark_available: "Mark as Available",
+    delete_post: "Delete Post",
+    link_copied: "Link Copied",
 
     // Haraj View
     haraj_latest_offers: "Latest offers added",

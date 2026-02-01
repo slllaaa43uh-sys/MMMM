@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار API الإحصائيات</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-right: 4px solid #667eea;
+        }
+        .test-section h2 {
+            color: #333;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .result pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #333;
+            line-height: 1.6;
+        }
+        .badge-display {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .badge-item {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            margin: 10px;
+            min-width: 150px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .badge-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        .badge-label {
+            color: #666;
+            font-size: 1em;
+            font-weight: 500;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .loading {
+            color: #ffc107;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔢 اختبار API إحصائيات المنشورات</h1>
+        
+        <div class="test-section">
+            <h2>1️⃣ اختبار الاتصال بالـ API</h2>
+            <button onclick="testAPI()">اختبر الاتصال الآن</button>
+            <div id="api-status" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2️⃣ جلب إحصائيات الوظائف والحراج</h2>
+            <button onclick="fetchCounts()">احصل على الإحصائيات</button>
+            <div id="counts-result" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3️⃣ عرض الأرقام (كما تظهر في التطبيق)</h2>
+            <div id="badge-display" class="badge-display"></div>
+        </div>
+    </div>
+
+    <script>
+        // استبدل هذا بعنوان الـ API الخاص بك
+        const API_BASE_URL = 'http://localhost:5001';
+
+        async function testAPI() {
+            const statusDiv = document.getElementById('api-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<p class="loading">⏳ جارٍ الاتصال بالخادم...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/posts/counts`);
+                
+                console.log('🔍 Response Status:', response.status);
+                console.log('🔍 Response Headers:', [...response.headers.entries()]);
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `
+                        <p class="success">✅ نجح الاتصال!</p>
+                        <p><strong>الحالة:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>الرابط:</strong> ${API_BASE_URL}/api/v1/posts/counts</p>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <p class="error">❌ فشل الاتصال</p>
+                        <p><strong>الحالة:</strong> ${response.status} ${response.statusText}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+                statusDiv.innerHTML = `
+                    <p class="error">❌ خطأ في الاتصال</p>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        async function fetchCounts() {
+            const resultDiv = document.getElementById('counts-result');
+            const badgeDiv = document.getElementById('badge-display');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p class="loading">⏳ جارٍ جلب البيانات...</p>';
+            badgeDiv.innerHTML = '';
+
+            try {
+                console.log('🔍 Fetching from:', `${API_BASE_URL}/api/v1/posts/counts`);
+                
+                const response = await fetch(`${API_BASE_URL}/api/v1/posts/counts`);
+                
+                console.log('🔍 Response:', response);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    console.log('🔍 Raw Data:', data);
+                    console.log('🔍 Data Structure:', JSON.stringify(data, null, 2));
+                    
+                    // عرض البيانات الخام
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ تم جلب البيانات بنجاح!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+
+                    // استخراج الأرقام
+                    const counts = data.data || data;
+                    
+                    console.log('🔍 Jobs Object:', counts.jobs);
+                    console.log('🔍 Haraj Object:', counts.haraj);
+                    console.log('🔍 Urgent Object:', counts.urgent);
+                    console.log('🔍 GlobalJobs Object:', counts.globalJobs);
+                    
+                    const jobsTotal = counts.jobs?.total || counts.jobs?.seeker + counts.jobs?.employer || 0;
+                    const harajTotal = counts.haraj?.total || 0;
+                    const urgentTotal = counts.urgent?.total || 0;
+                    const globalTotal = counts.globalJobs?.total || 0;
+
+                    console.log('🔍 Extracted Numbers:', { jobsTotal, harajTotal, urgentTotal, globalTotal });
+
+                    // عرض البادجات
+                    badgeDiv.innerHTML = `
+                        <div class="badge-item">
+                            <div class="badge-label">💼 الوظائف</div>
+                            <div class="badge-number">${jobsTotal}</div>
+                        </div>
+                        <div class="badge-item">
+                            <div class="badge-label">🏪 الحراج</div>
+                            <div class="badge-number">${harajTotal}</div>
+                        </div>
+                        <div class="badge-item">
+                            <div class="badge-label">⚡ العاجلة</div>
+                            <div class="badge-number">${urgentTotal}</div>
+                        </div>
+                        <div class="badge-item">
+                            <div class="badge-label">🌍 العالمية</div>
+                            <div class="badge-number">${globalTotal}</div>
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <p class="error">❌ فشل جلب البيانات</p>
+                        <p><strong>الحالة:</strong> ${response.status} ${response.statusText}</p>
+                        <pre>${errorText}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Fetch Error:', error);
+                resultDiv.innerHTML = `
+                    <p class="error">❌ خطأ في جلب البيانات</p>
+                    <p>${error.message}</p>
+                    <p><strong>تأكد من:</strong></p>
+                    <ul>
+                        <li>الخادم يعمل على ${API_BASE_URL}</li>
+                        <li>لا توجد مشاكل في CORS</li>
+                        <li>الإنترنت متصل</li>
+                    </ul>
+                `;
+            }
+        }
+
+        // اختبار تلقائي عند تحميل الصفحة
+        window.addEventListener('load', () => {
+            console.log('📱 Page loaded - Testing API automatically...');
+            fetchCounts();
+        });
+    </script>
+</body>
+</html>

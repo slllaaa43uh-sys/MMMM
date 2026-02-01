@@ -3,8 +3,11 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#f3f4f6" id="theme-color-meta" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     
     <!-- Updated Favicon with Modern Gradient Hexagon Logo (Blue -> Cyan -> Green) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 200 200' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='200' y2='200'%3E%3Cstop offset='0%25' stop-color='%232563EB'/%3E%3Cstop offset='50%25' stop-color='%2306B6D4'/%3E%3Cstop offset='100%25' stop-color='%2322C55E'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M100 20L170 60V140L100 180L30 140V60L100 20Z' fill='url(%23g)'/%3E%3Cpath d='M65 85V135H85V105L100 120L115 105V135H135V85H115L100 100L85 85H65Z' fill='white'/%3E%3C/svg%3E" />
@@ -170,6 +173,30 @@
       }
       html.dark .fixed.bg-white { background-color: #121212 !important; }
       html.dark .text-gray-400 { color: #52525b !important; }
+
+      /* Prevent zoom on input focus (Mobile Safari) */
+      input, textarea, select {
+        font-size: 16px !important;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
+      /* Ensure modals fit perfectly on mobile */
+      .fixed.inset-0 {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+      }
+
+      /* Prevent body scroll when modal is open */
+      body.modal-open {
+        overflow: hidden !important;
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
     </style>
 <script type="importmap">
 {

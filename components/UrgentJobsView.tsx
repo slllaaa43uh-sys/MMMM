@@ -354,6 +354,8 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                             specialTag: p.specialTag,
                             title: displayTitle,
                             jobStatus: p.jobStatus || 'open',
+                            harajStatus: p.harajStatus || 'available',
+                            type: p.type,
                             contactPhone: p.contactPhone,
                             contactEmail: p.contactEmail,
                             contactMethods: p.contactMethods,

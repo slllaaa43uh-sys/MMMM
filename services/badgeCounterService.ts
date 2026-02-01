@@ -10,12 +10,24 @@ export interface JobCategoryCounts {
 
 export interface PostCountsData {
     jobs: {
-        totalSeeker: number;
-        totalEmployer: number;
+        total?: number;          // ⭐ Added
+        seeker?: number;         // ⭐ Added
+        employer?: number;       // ⭐ Added
+        totalSeeker?: number;
+        totalEmployer?: number;
         categories: Record<string, JobCategoryCounts>;
     };
     haraj: {
+        total?: number;          // ⭐ Added
         categories: Record<string, number>;
+    };
+    urgent?: {                   // ⭐ Added for urgent jobs
+        total?: number;
+        byTag?: Record<string, number>;
+    };
+    globalJobs?: {               // ⭐ Added for global jobs
+        total?: number;
+        byLocation?: Record<string, number>;
     };
 }
 
@@ -43,25 +55,72 @@ export const BadgeCounterService = {
 
   async fetchPostCounts(): Promise<PostCountsData | null> {
     try {
+        console.log('🔢 [BadgeCounter] Fetching post counts from:', `${API_BASE_URL}/api/v1/posts/counts`);
+        
         // Fetch counts from the backend endpoint
         const response = await fetch(`${API_BASE_URL}/api/v1/posts/counts`);
+        
+        console.log('🔢 [BadgeCounter] Response status:', response.status, response.statusText);
+        
         if (response.ok) {
             const data = await response.json();
-            currentCounts = data;
-            return data;
+            console.log('🔢 [BadgeCounter] Raw API Response:', JSON.stringify(data, null, 2));
+            console.log('🔢 [BadgeCounter] Jobs Data:', data.data?.jobs);
+            console.log('🔢 [BadgeCounter] Haraj Data:', data.data?.haraj);
+            
+            // Store the actual data structure
+            currentCounts = data.data || data;
+            
+            console.log('🔢 [BadgeCounter] Stored counts:', currentCounts);
+            console.log('🔢 [BadgeCounter] Jobs Total:', currentCounts?.jobs?.total);
+            console.log('🔢 [BadgeCounter] Jobs Seeker:', currentCounts?.jobs?.seeker);
+            console.log('🔢 [BadgeCounter] Jobs Employer:', currentCounts?.jobs?.employer);
+            console.log('🔢 [BadgeCounter] Haraj Total:', currentCounts?.haraj?.total);
+            
+            return currentCounts;
+        } else {
+            console.error('🔢 [BadgeCounter] API request failed:', response.status, response.statusText);
         }
     } catch (e) {
-        console.error("Failed to fetch post counts", e);
+        console.error("🔢 [BadgeCounter] Failed to fetch post counts", e);
     }
     return null;
   },
 
   getJobsSeekerCount() { 
-      return currentCounts?.jobs?.totalSeeker || 0; 
+      const count = currentCounts?.jobs?.seeker || currentCounts?.jobs?.totalSeeker || 0;
+      console.log('🔢 [BadgeCounter] getJobsSeekerCount() =', count);
+      return count;
   },
 
   getJobsEmployerCount() { 
-      return currentCounts?.jobs?.totalEmployer || 0; 
+      const count = currentCounts?.jobs?.employer || currentCounts?.jobs?.totalEmployer || 0;
+      console.log('🔢 [BadgeCounter] getJobsEmployerCount() =', count);
+      return count;
+  },
+  
+  getJobsTotalCount() {
+      const count = currentCounts?.jobs?.total || 0;
+      console.log('🔢 [BadgeCounter] getJobsTotalCount() =', count);
+      return count;
+  },
+  
+  getHarajTotalCount() {
+      const count = currentCounts?.haraj?.total || 0;
+      console.log('🔢 [BadgeCounter] getHarajTotalCount() =', count);
+      return count;
+  },
+  
+  getUrgentTotalCount() {
+      const count = currentCounts?.urgent?.total || 0;
+      console.log('🔢 [BadgeCounter] getUrgentTotalCount() =', count);
+      return count;
+  },
+  
+  getGlobalJobsTotalCount() {
+      const count = currentCounts?.globalJobs?.total || 0;
+      console.log('🔢 [BadgeCounter] getGlobalJobsTotalCount() =', count);
+      return count;
   },
 
   getJobCategoryCounts(category: string): JobCategoryCounts {
@@ -73,11 +132,17 @@ export const BadgeCounterService = {
   },
 
   initPostCountService() {
+      console.log('🔢 [BadgeCounter] Initializing Post Count Service...');
+      
       // Initial fetch
-      this.fetchPostCounts();
+      this.fetchPostCounts().then(() => {
+          console.log('🔢 [BadgeCounter] Initial fetch completed');
+          console.log('🔢 [BadgeCounter] Current counts after init:', currentCounts);
+      });
       
       // Poll every 60 seconds to keep counts updated
       setInterval(() => {
+          console.log('🔢 [BadgeCounter] Polling for updates...');
           this.fetchPostCounts();
       }, 60000);
   }

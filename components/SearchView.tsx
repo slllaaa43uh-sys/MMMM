@@ -187,6 +187,7 @@ const SearchView: React.FC<SearchViewProps> = ({ onClose, onReport }) => {
                           
                           isFeatured: p.isFeatured,
                           jobStatus: p.jobStatus,
+                          harajStatus: p.harajStatus,
                           
                           contactPhone: p.contactPhone,
                           contactEmail: p.contactEmail,

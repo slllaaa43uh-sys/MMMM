@@ -28,6 +28,7 @@ import SearchView from './components/SearchView';
 import VideoDetailView from './components/VideoDetailView';
 import { Post } from './types';
 import { API_BASE_URL } from './constants';
+import { uploadFile, uploadMultipleFiles, uploadFileLegacy, isVideoFile } from './services/uploadService';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -76,6 +77,12 @@ const AppContent: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [isLocationDrawerOpen, setIsLocationDrawerOpen] = useState(false);
 
+  // Header Visibility State
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [areActionsVisible, setAreActionsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Pagination State - REDUCED TO 5 AS REQUESTED
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -118,6 +125,60 @@ const AppContent: React.FC = () => {
       navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: true });
     }
   }, []);
+
+  // Header Scroll Logic - Hide/Show based on scroll direction (Facebook style)
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollContainer = scrollContainerRef.current;
+      if (!scrollContainer) return;
+
+      const currentScrollY = scrollContainer.scrollTop;
+
+      // If at the very top, always show everything
+      if (currentScrollY <= 10) {
+        setIsHeaderVisible(true);
+        setAreActionsVisible(true);
+        setLastScrollY(currentScrollY);
+        return;
+      }
+
+      // Calculate scroll difference
+      const scrollDiff = currentScrollY - lastScrollY;
+
+      // If no change, return
+      if (scrollDiff === 0) return;
+
+      // Check scroll direction
+      if (scrollDiff > 0) {
+        // Scrolling DOWN (from top to bottom)
+        if (currentScrollY > 20 && currentScrollY <= 80) {
+          // First phase: hide actions only (icons disappear)
+          setAreActionsVisible(false);
+          setIsHeaderVisible(true);
+        } else if (currentScrollY > 80) {
+          // Second phase: hide entire header + CreatePostBar
+          setAreActionsVisible(false);
+          setIsHeaderVisible(false);
+        }
+      } else {
+        // Scrolling UP (from bottom to top)
+        // Show actions IMMEDIATELY on any upward scroll
+        setAreActionsVisible(true);
+        // Show full header after a bit more scrolling
+        if (Math.abs(scrollDiff) > 5) {
+          setIsHeaderVisible(true);
+        }
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer && activeTab === 'home') {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [lastScrollY, activeTab]);
 
   // --- NOTIFICATIONS & DEEP LINKING SETUP ---
   
@@ -368,7 +429,15 @@ const AppContent: React.FC = () => {
   };
 
   const handleLocationSelect = (country: string, city: string | null) => setCurrentLocation({ country, city });
-  const handleSetActiveTab = (newTab: string) => activeTab !== newTab && setActiveTab(newTab);
+  const handleSetActiveTab = (newTab: string) => {
+    if (activeTab !== newTab) {
+      setActiveTab(newTab);
+      // Reset header visibility when changing tabs
+      setIsHeaderVisible(true);
+      setAreActionsVisible(true);
+      setLastScrollY(0);
+    }
+  };
   const handleOpenProfile = (userId: string | null = null) => setViewingProfileId(userId || 'me');
 
   const checkCorsDebug = async () => {
@@ -550,53 +619,34 @@ const AppContent: React.FC = () => {
       reactions,
       isShort: apiPost.isShort || false,
       originalPost,
+      harajStatus: apiPost.harajStatus || 'available',
     };
   };
 
-  const isVideoFile = (file: File) => {
-    if (file.type?.startsWith('video')) return true;
-    return /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
-  };
-
-  const normalizeUploadedFile = (fileResult: any, fallbackType: string) => {
-    if (!fileResult) return null;
-    return {
-      filePath: fileResult.filePath || fileResult.url || fileResult.path || fileResult.location,
-      fileType: fileResult.fileType || fileResult.type || fallbackType
-    };
-  };
-
-  const uploadFileDirect = async (file: File, token: string | null) => {
-    const formData = new FormData();
-    formData.append('files', file);
-    const response = await fetch(`${API_BASE_URL}/api/v1/upload/multiple`, {
-      method: 'POST',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      body: formData
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const fallbackMessage = isVideoFile(file) ? t('video_upload_failed') : 'فشل رفع الملفات';
-      throw new Error(errorData.message || errorData.msg || fallbackMessage);
-    }
-    const result = await response.json().catch(() => ({}));
-    const normalized = normalizeUploadedFile(result.file || result.files?.[0] || result, file.type || 'image');
-    if (!normalized?.filePath) {
-      throw new Error(t('video_upload_failed'));
-    }
-    return normalized;
-  };
-
-  const uploadFiles = async (files: File[]) => {
+  /**
+   * Upload files using XMLHttpRequest (Android-compatible)
+   * This method works better on Android devices
+   */
+  const uploadFiles = async (files: File[], onProgress?: (progress: number) => void) => {
     const token = localStorage.getItem('token');
-    const uploadedResults: Array<{ filePath: string; fileType: string }> = [];
-
-    for (const file of files) {
-      const direct = await uploadFileDirect(file, token);
-      uploadedResults.push(direct);
+    if (!token) {
+      throw new Error('Authentication required');
     }
 
-    return uploadedResults;
+    try {
+      // Use the improved upload service with XHR
+      const results = await uploadMultipleFiles(files, token, {
+        onProgress: onProgress || undefined
+      });
+      
+      return results.map(result => ({
+        filePath: result.filePath || result.fileUrl,
+        fileType: result.fileType
+      }));
+    } catch (error: any) {
+      console.error('❌ Upload error:', error);
+      throw new Error(error.message || 'فشل رفع الملفات');
+    }
   };
 
   const handlePostSubmit = async (postPayload: any) => {
@@ -622,25 +672,41 @@ const AppContent: React.FC = () => {
     setActiveTab('home');
     
     const performBackgroundUpload = async () => {
-      // 1. Simulate "Spinning" Phase (Delayed Start)
-      // We keep progress at 0 for 1.5 seconds to show "Connecting/Preparing" state
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // 2. Start Counting Phase
-      const progressInterval = setInterval(() => {
-          setPostUploadProgress(prev => {
-              if (prev >= 90) return prev; // Cap at 90 until real success
-              return prev + 5;
-          });
-      }, 100); // Increment every 100ms
-
       try {
         let finalPayload = { ...payloadToSend }; 
+        
         if (postPayload.rawMedia?.length > 0) {
-            const uploaded = await uploadFiles(postPayload.rawMedia);
+            // Show initial progress
+            setPostUploadProgress(1);
+            
+            // Upload with real progress tracking
+            const uploaded = await uploadFiles(postPayload.rawMedia, (progress) => {
+              // Upload progress is 0-100, map it to 1-85 (save 85-100 for post creation)
+              const mappedProgress = Math.max(1, Math.min(85, Math.round(1 + (progress * 0.84))));
+              setPostUploadProgress(mappedProgress);
+            });
+            
             finalPayload.media = uploaded.map((f: any) => ({ url: f.filePath, type: f.fileType }));
             delete finalPayload.rawMedia;
+            
+            // After upload complete, show 87% before creating post
+            setPostUploadProgress(87);
+        } else {
+          // No media, start from beginning with animation
+          let currentProgress = 0;
+          const progressInterval = setInterval(() => {
+            currentProgress += 5;
+            if (currentProgress >= 85) {
+              clearInterval(progressInterval);
+              setPostUploadProgress(85);
+            } else {
+              setPostUploadProgress(currentProgress);
+            }
+          }, 100);
         }
+        
+        // Show progress during post creation
+        setPostUploadProgress(90);
         
         const response = await fetch(`${API_BASE_URL}/api/v1/posts`, {
           method: 'POST',
@@ -652,6 +718,9 @@ const AppContent: React.FC = () => {
           const data = await response.json();
           const post = data.post || data; 
           const postId = post._id || post.id;
+
+          // Show near completion
+          setPostUploadProgress(95);
 
           if (postId && promotionType) {
               try {
@@ -668,7 +737,6 @@ const AppContent: React.FC = () => {
               }
           }
 
-          clearInterval(progressInterval);
           setPostUploadProgress(100); // Snap to 100 on success
           
           // Small delay to let the user see 100% before showing success check
@@ -679,12 +747,10 @@ const AppContent: React.FC = () => {
           }, 500);
 
         } else {
-          clearInterval(progressInterval);
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || errorData.msg || "فشل النشر من الخادم");
         }
       } catch (error: any) {
-        clearInterval(progressInterval);
         setPendingStatus('error');
         setPostErrorMsg(error.message);
         setTimeout(() => setPendingPost(null), 10000);
@@ -911,6 +977,13 @@ const AppContent: React.FC = () => {
     fetchFeedPosts(1, true);
   }, [token, currentLocation, isOnline]); // Refetch when coming online
 
+  // Initialize Badge Counter Service
+  useEffect(() => {
+    console.log('🟢 [App] Initializing BadgeCounterService...');
+    BadgeCounterService.initPostCountService();
+    console.log('🟢 [App] BadgeCounterService initialized');
+  }, []);
+
   useEffect(() => {
     if (!scrollTargetPostId || posts.length === 0) return;
     const node = postRefs.current[scrollTargetPostId];
@@ -979,7 +1052,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#f0f2f5] dark:bg-black max-w-md mx-auto shadow-2xl overflow-hidden relative transition-colors duration-200">
       
-      {pendingPost && !pendingPost.isShort && (
+      {pendingPost && !pendingPost.isShort && activeTab === 'home' && (
          <PostUploadIndicator 
             status={pendingStatus} 
             contentPreview={pendingPost.content} 
@@ -1033,7 +1106,7 @@ const AppContent: React.FC = () => {
       <div className="flex flex-col h-screen">
         <main className="flex-1 overflow-hidden relative">
           <div className={`view ${activeTab === 'home' ? 'active' : ''}`}>
-            <div className={`h-full native-scroll no-scrollbar ${!isFullScreen ? 'pb-20' : ''}`}>
+            <div ref={scrollContainerRef} className={`h-full native-scroll no-scrollbar ${!isFullScreen ? 'pb-20' : ''}`}>
               {!isFullScreen && (
                 <div className="bg-white shadow-sm mb-2">
                   <Header 
@@ -1051,7 +1124,9 @@ const AppContent: React.FC = () => {
                     }}
                     onAIChatClick={() => setIsAIChatOpen(true)}
                     onSearchClick={() => setIsSearchOpen(true)} // Handle Search Click
-                    unreadCount={unreadNotificationsCount} 
+                    unreadCount={unreadNotificationsCount}
+                    isVisible={isHeaderVisible}
+                    areActionsVisible={areActionsVisible}
                   />
                   <CreatePostBar 
                     onOpen={() => {
@@ -1059,6 +1134,7 @@ const AppContent: React.FC = () => {
                         else handleRequireLogin();
                     }} 
                     onLoginRequest={handleRequireLogin}
+                    isVisible={isHeaderVisible}
                   />
                 </div>
               )}
@@ -1130,14 +1206,14 @@ const AppContent: React.FC = () => {
             </div>
           </div>
           <div className={`view ${activeTab === 'jobs' ? 'active' : ''}`}>
-             <div className={`h-full native-scroll no-scrollbar ${!isFullScreen ? 'pb-20' : ''}`}>
+             <div className="h-full native-scroll no-scrollbar">
                 <JobsView onFullScreenToggle={setIsFullScreen} currentLocation={currentLocation} onLocationClick={() => setIsLocationDrawerOpen(true)} onReport={handleReport} onProfileClick={handleOpenProfile} />
              </div>
           </div>
           
           {/* Urgent Jobs View */}
           <div className={`view ${activeTab === 'urgent' ? 'active' : ''}`}>
-             <div className={`h-full native-scroll no-scrollbar ${!isFullScreen ? 'pb-20' : ''}`}>
+             <div className="h-full native-scroll no-scrollbar">
                 <UrgentJobsView 
                     onFullScreenToggle={setIsFullScreen} 
                     currentLocation={currentLocation} 
@@ -1149,13 +1225,13 @@ const AppContent: React.FC = () => {
           </div>
 
           <div className={`view ${activeTab === 'haraj' ? 'active' : ''}`}>
-             <div className={`h-full native-scroll no-scrollbar ${!isFullScreen ? 'pb-20' : ''}`}>
+             <div className="h-full native-scroll no-scrollbar">
                 <HarajView onFullScreenToggle={setIsFullScreen} currentLocation={currentLocation} onLocationClick={() => setIsLocationDrawerOpen(true)} onReport={handleReport} onProfileClick={handleOpenProfile} />
              </div>
           </div>
           <div className={`view ${activeTab === 'world' ? 'active' : ''}`}>
-             <div className={`h-full native-scroll no-scrollbar ${!isFullScreen ? 'pb-20' : ''}`}>
-                <GlobalJobsView isActive={isWorldActive} />
+             <div className="h-full native-scroll no-scrollbar">
+                <GlobalJobsView isActive={isWorldActive} onReport={handleReport} onProfileClick={handleOpenProfile} />
              </div>
           </div>
         </main>

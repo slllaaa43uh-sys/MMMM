@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Flag, Send, AlertTriangle, User, Loader2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -13,8 +14,23 @@ interface ReportModalProps {
 }
 
 const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, onSubmit, targetName, targetType, isSubmitting = false }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      // Prevent body scroll and fix position issues
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      const originalPosition = window.getComputedStyle(document.body).position;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'relative';
+      
+      return () => {
+        document.body.style.overflow = originalStyle;
+        document.body.style.position = originalPosition;
+      };
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -34,8 +50,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, onSubmit, ta
     setReason('');
   };
 
-  return (
-    <div className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[10003] flex items-end sm:items-center justify-center" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
@@ -105,7 +121,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, onSubmit, ta
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

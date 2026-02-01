@@ -14,6 +14,8 @@ interface HeaderProps {
   onAIChatClick: () => void;
   onSearchClick: () => void; // New Prop
   unreadCount?: number;
+  isVisible?: boolean; // New prop for visibility
+  areActionsVisible?: boolean; // New prop for actions visibility
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -24,7 +26,9 @@ const Header: React.FC<HeaderProps> = ({
   onAddCVClick,
   onAIChatClick,
   onSearchClick,
-  unreadCount
+  unreadCount,
+  isVisible = true, // Default to visible
+  areActionsVisible = true // Default to visible
 }) => {
   const { language } = useLanguage();
   
@@ -47,7 +51,17 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <div className="bg-white px-4 pt-3 pb-1 flex justify-between items-center">
+    <div 
+      className={`bg-white px-4 pt-3 pb-1 flex justify-between items-center transition-all duration-200 ease-out shadow-sm ${
+        isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+      }`}
+      style={{ 
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        willChange: 'transform, opacity'
+      }}
+    >
       
       {/* Location Selector */}
       <button 
@@ -60,8 +74,10 @@ const Header: React.FC<HeaderProps> = ({
         </span>
       </button>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1">
+      {/* Actions - with separate visibility control */}
+      <div className={`flex items-center gap-1 transition-all duration-200 ${
+        areActionsVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+      }`}>
         {/* NEW: Search Button */}
         <button 
           onClick={onSearchClick}

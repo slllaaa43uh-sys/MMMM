@@ -6,6 +6,14 @@ export interface User {
   avatar: string;
 }
 
+export interface GlobalJobData {
+  applicationUrl: string;
+  workLocation: string;
+  salary?: string;
+  numberOfEmployees?: number;
+  ageRequirement?: string;
+}
+
 export interface Post {
   id: string;
   _id?: string;
@@ -23,7 +31,8 @@ export interface Post {
   comments: number;
   shares: number;
   repostsCount?: number;
-  jobStatus?: 'open' | 'negotiating' | 'hired';
+  jobStatus?: 'open' | 'negotiating' | 'hired' | 'sold' | 'deleted';
+  harajStatus?: 'available' | 'sold' | 'deleted';
   title?: string;
   type?: string;
   location?: string;
@@ -39,6 +48,8 @@ export interface Post {
   reactions?: Array<{ user: string; type: string }>;
   originalPost?: Post; // Added for Repost functionality
   specialTag?: string; // Added for Urgent Jobs filtering
+  isGlobalJob?: boolean; // Added for Global Jobs
+  globalJobData?: GlobalJobData; // Added for Global Jobs
 }
 
 export interface Story {

@@ -394,6 +394,8 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
                 contactMethods: p.contactMethods || [],
                 repostsCount: p.repostsCount || 0,
                 jobStatus: p.jobStatus || 'open',
+                harajStatus: p.harajStatus || 'available',
+                type: p.type || 'haraj',
               };
             });
             
@@ -986,7 +988,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
         </div>
       </div>
 
-      <div className="flex flex-col gap-[1px] bg-gray-100 dark:bg-gray-800 mt-1">
+      <div className="flex flex-col gap-[1px] bg-gray-100 dark:bg-gray-800 mt-1 pb-20">
         {HARAJ_CATEGORIES.map((cat, idx) => (
           <div 
             key={idx}

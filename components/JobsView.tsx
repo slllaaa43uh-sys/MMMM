@@ -12,6 +12,7 @@ import { API_BASE_URL, WHATSAPP_WELCOME_MESSAGE } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
 import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
+import { BadgeCounterService } from '../services/badgeCounterService';
 import Logo from './Logo';
 import Avatar from './Avatar';
 
@@ -145,6 +146,9 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
   // Menu & Contact State
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [contactPost, setContactPost] = useState<Post | null>(null);
+
+  // Category Counts State (Badge Numbers)
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, { seeker: number; employer: number }>>({});
 
     // The requested WhatsApp message
     const whatsappMessage = WHATSAPP_WELCOME_MESSAGE;
@@ -319,6 +323,22 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
       return language === 'ar' ? `${years} سنة` : `${years}y`;
   };
 
+  // Fetch category counts for badges
+  useEffect(() => {
+    const fetchCategoryCounts = async () => {
+      const counts = await BadgeCounterService.fetchPostCounts();
+      if (counts?.jobs?.categories) {
+        setCategoryCounts(counts.jobs.categories);
+      }
+    };
+    
+    fetchCategoryCounts();
+    
+    // تحديث كل 30 ثانية
+    const interval = setInterval(fetchCategoryCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const currentUserId = localStorage.getItem('userId');
@@ -348,8 +368,13 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
         .then(data => {
             const postsArray = data.posts || [];
             if (Array.isArray(postsArray) && postsArray.length > 0) {
-                // If logged in, filter out own posts. If guest, show all.
+                // CRITICAL FIX: Filter out global jobs from regular jobs page
+                // If logged in, filter out own posts and global jobs. If guest, filter out global jobs only.
                 const filteredPosts = postsArray.filter((p: any) => {
+                    // Exclude global jobs from regular jobs page
+                    if (p.isGlobalJob === true) {
+                        return false;
+                    }
                     const postUserId = p.user?._id || p.user?.id || p.user;
                     return postUserId !== currentUserId;
                 });
@@ -409,6 +434,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                         contactMethods: p.contactMethods || [],
                         repostsCount: p.repostsCount || 0,
                         jobStatus: p.jobStatus || 'open',
+                        harajStatus: p.harajStatus || 'available',
                     };
                 });
                 
@@ -996,22 +1022,35 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
         </div>
       </div>
 
-      <div className="flex flex-col gap-[1px] bg-gray-100 dark:bg-gray-800 mt-1">
-        {JOB_CATEGORIES.map((cat, idx) => (
-          <div 
-            key={idx}
-            onClick={() => setSelectedCategory(cat.name)}
-            className="flex items-center justify-between p-3 bg-white dark:bg-[#121212] hover:bg-gray-50 dark:hover:bg-gray-900 active:bg-gray-100 cursor-pointer transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className={`${cat.bg} p-2 rounded-lg shadow-sm dark:opacity-80`}>
-                <cat.icon size={20} className={cat.color} />
+      <div className="flex flex-col gap-[1px] bg-gray-100 dark:bg-gray-800 mt-1 pb-20">
+        {JOB_CATEGORIES.map((cat, idx) => {
+          const count = categoryCounts[cat.name];
+          const totalCount = count ? (count.seeker || 0) + (count.employer || 0) : 0;
+          
+          return (
+            <div 
+              key={idx}
+              onClick={() => setSelectedCategory(cat.name)}
+              className="flex items-center justify-between p-3 bg-white dark:bg-[#121212] hover:bg-gray-50 dark:hover:bg-gray-900 active:bg-gray-100 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`${cat.bg} p-2 rounded-lg shadow-sm dark:opacity-80`}>
+                  <cat.icon size={20} className={cat.color} />
+                </div>
+                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{t(cat.name)}</span>
               </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{t(cat.name)}</span>
+              
+              <div className="flex items-center gap-2">
+                {totalCount > 0 && (
+                  <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center">
+                    {totalCount}
+                  </span>
+                )}
+                <ChevronLeft size={18} className={`text-gray-300 ${language === 'en' ? 'rotate-180' : ''}`} />
+              </div>
             </div>
-            <ChevronLeft size={18} className={`text-gray-300 ${language === 'en' ? 'rotate-180' : ''}`} />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {selectedCategory && createPortal(
@@ -1034,7 +1073,15 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                        </div>
                        <span className="font-bold text-gray-700 dark:text-gray-200">{t('jobs_seeker')}</span>
                     </div>
-                    <ChevronLeft size={18} className={`text-gray-300 group-hover:text-purple-500 ${language === 'en' ? 'rotate-180' : ''}`} />
+                    
+                    <div className="flex items-center gap-2">
+                       {categoryCounts[selectedCategory]?.employer > 0 && (
+                         <div className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                           {categoryCounts[selectedCategory].employer}
+                         </div>
+                       )}
+                       <ChevronLeft size={18} className={`text-gray-300 group-hover:text-purple-500 ${language === 'en' ? 'rotate-180' : ''}`} />
+                    </div>
                  </button>
 
                  <button 
@@ -1046,6 +1093,15 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
                           <Briefcase size={20} />
                        </div>
                        <span className="font-bold text-gray-700 dark:text-gray-200">{t('jobs_employer')}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                       {categoryCounts[selectedCategory]?.seeker > 0 && (
+                         <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                           {categoryCounts[selectedCategory].seeker}
+                         </div>
+                       )}
+                       <ChevronLeft size={18} className={`text-gray-300 group-hover:text-blue-500 ${language === 'en' ? 'rotate-180' : ''}`} />
                     </div>
                     <ChevronLeft size={18} className={`text-gray-300 group-hover:text-blue-500 ${language === 'en' ? 'rotate-180' : ''}`} />
                  </button>

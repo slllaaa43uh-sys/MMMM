@@ -1,6 +1,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 // Updated Config
 const firebaseConfig = {
@@ -31,5 +32,12 @@ try {
 } catch (error) {
   console.error("Firebase Initialization Error:", error);
 }
+
+// Auth & Google Provider
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 export { app, messaging, getToken, onMessage };

@@ -160,9 +160,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
             ));
         }
     };
+    
+    const handleHarajStatusUpdate = (event: CustomEvent) => {
+        if (event.detail && event.detail.postId) {
+            setPosts(currentPosts => currentPosts.map(p => 
+                p.id === event.detail.postId 
+                ? { ...p, harajStatus: event.detail.harajStatus } 
+                : p
+            ));
+        }
+    };
+    
     window.addEventListener('post-status-updated', handleStatusUpdate as EventListener);
+    window.addEventListener('post-haraj-status-updated', handleHarajStatusUpdate as EventListener);
+    
     return () => {
         window.removeEventListener('post-status-updated', handleStatusUpdate as EventListener);
+        window.removeEventListener('post-haraj-status-updated', handleHarajStatusUpdate as EventListener);
     };
   }, []);
 
@@ -425,6 +439,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
       isShort: apiPost.isShort || false,
       
       jobStatus: apiPost.jobStatus || 'open',
+      harajStatus: apiPost.harajStatus || 'available',
       title: apiPost.title,
       type: apiPost.type,
       location: locationString,

@@ -59,6 +59,14 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
   const [jobType, setJobType] = useState<'employer' | 'seeker'>('employer');
   
+  // Global Jobs Feature States
+  const [isGlobalJob, setIsGlobalJob] = useState(false);
+  const [applicationUrl, setApplicationUrl] = useState('');
+  const [salary, setSalary] = useState('');
+  const [numberOfEmployees, setNumberOfEmployees] = useState('');
+  const [ageRequirement, setAgeRequirement] = useState('');
+  const [workLocation, setWorkLocation] = useState('');
+  
   const [contactPhone, setContactPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactMethods, setContactMethods] = useState<{whatsapp: boolean, call: boolean, email: boolean}>({
@@ -73,15 +81,29 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.classList.add('modal-open');
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
+
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setIsDrawerOpen(false);
-        const newFileObjects = Array.from(e.target.files).filter((file) => file.type.startsWith('image/'));
+        // Accept both images and videos
+        const newFileObjects = Array.from(e.target.files).filter((file: File) => 
+          file.type.startsWith('image/') || file.type.startsWith('video/')
+        );
         if (newFileObjects.length === 0) return;
-        const newMediaURLs = newFileObjects.map((file: File) => ({
-          url: URL.createObjectURL(file),
-          type: 'image' as const
-        }));
+        const newMediaURLs = newFileObjects.map((file: File) => {
+          const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+          return {
+            url: URL.createObjectURL(file),
+            type: mediaType as 'image' | 'video'
+          };
+        });
       setMediaFileObjects(prev => [...prev, ...newFileObjects]);
       setMediaFiles(prev => [...prev, ...newMediaURLs]);
     }
@@ -149,6 +171,25 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
       }
   };
 
+  const handleGlobalJobToggle = (enabled: boolean) => {
+      setIsGlobalJob(enabled);
+      if (enabled) {
+          // Clear fields that shouldn't be used with global jobs
+          setContactPhone('');
+          setContactEmail('');
+          setContactMethods({ whatsapp: false, call: false, email: false });
+          setPublishScope('category_only'); // Force category only
+          setJobType('employer'); // Force employer type
+      } else {
+          // Reset global job fields
+          setApplicationUrl('');
+          setSalary('');
+          setNumberOfEmployees('');
+          setAgeRequirement('');
+          setWorkLocation('');
+      }
+  };
+
   const handleUrgentTagSelect = (tag: string) => {
       setUrgentTag(tag);
       setIsUrgentDrawerOpen(false);
@@ -209,25 +250,46 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
           displayPage = 'urgent';
       }
 
+      // Validate global job required fields
+      if (isGlobalJob) {
+          if (!applicationUrl || !applicationUrl.match(/^https?:\/\/.+/)) {
+              alert(language === 'ar' ? 'يرجى إدخال رابط تقديم صالح (يجب أن يبدأ بـ http:// أو https://)' : 'Please enter a valid application URL (must start with http:// or https://)');
+              return;
+          }
+          if (!workLocation || workLocation.trim() === '') {
+              alert(language === 'ar' ? 'يرجى إدخال مكان العمل' : 'Please enter work location');
+              return;
+          }
+      }
+
       const postPayload = {
         content: text,
         type: type,
         isFeatured: isPremium,
         promotionType: promotionType,
         displayPage: displayPage,
-        category: category ? category.split(': ')[1] : null, 
+        category: isGlobalJob ? null : (category ? category.split(': ')[1] : null), 
         specialTag: convertUrgentTagToArabic(urgentTag, t), 
         media: [], 
         rawMedia: mediaFileObjects, 
         scope: scope,
         country: scope === 'local' ? selectedCountry : null,
         city: scope === 'local' ? (cityToSend || 'كل المدن') : null,
-        contactPhone: contactPhone,
-        contactEmail: contactEmail,
-        contactMethods: activeContactMethods, 
+        contactPhone: isGlobalJob ? '' : contactPhone,
+        contactEmail: isGlobalJob ? '' : contactEmail,
+        contactMethods: isGlobalJob ? [] : activeContactMethods, 
         isShort: false, 
         title: finalTitle,
         location: location || undefined,
+        // Global Job Fields
+        isGlobalJob: isGlobalJob,
+        globalJobData: isGlobalJob ? {
+          applicationUrl: applicationUrl,
+          salary: salary || undefined,
+          numberOfEmployees: numberOfEmployees ? parseInt(numberOfEmployees) : undefined,
+          ageRequirement: ageRequirement || undefined,
+          workLocation: workLocation
+        } : undefined,
       };
   
       onPostSubmit(postPayload);
@@ -270,9 +332,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
   if (step === 1) {
       return (
-        <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-bottom duration-300 flex flex-col">
+        <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-bottom duration-300 flex flex-col max-w-[100vw] max-h-[100vh] overflow-hidden">
           {/* Step 1 Content (Same as before) */}
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 bg-white dark:bg-[#121212] z-10 pt-safe">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 bg-white dark:bg-[#121212] z-10 pt-safe flex-shrink-0">
               <div className="flex items-center gap-3">
                 <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors">
                   <X size={24} className="text-gray-600 dark:text-gray-200" />
@@ -291,7 +353,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
               </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar pb-[100px]">
+          <div className="flex-1 overflow-y-auto no-scrollbar pb-[100px] w-full">
               <div className="px-4 py-4 flex items-center gap-3">
                 <Avatar name={userName} src={avatarSrc} className="w-12 h-12 border border-gray-100 dark:border-gray-800" />
                 <div>
@@ -387,7 +449,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
                     <div className="bg-green-200 dark:bg-green-800 p-2 rounded-full"><ImageIcon size={24} className="text-green-700 dark:text-green-200" /></div>
                     <span className="text-xs font-bold text-green-800 dark:text-green-300">{t('post_media')}</span>
                   </button>
-                  <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleMediaUpload} />
+                  <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleMediaUpload} />
 
                   <button onClick={handleAutoLocation} className="flex flex-col items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl p-4 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
                     <div className="bg-red-200 dark:bg-red-800 p-2 rounded-full"><MapPin size={24} className="text-red-700 dark:text-red-200" /></div>
@@ -439,9 +501,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
   const isUrgentMode = publishScope === 'urgent_page';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-left duration-300 flex flex-col">
+    <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-left duration-300 flex flex-col max-w-[100vw] max-h-[100vh] overflow-hidden">
        
-       <div className="px-4 py-3 flex items-center justify-between sticky top-0 bg-white dark:bg-[#121212] z-10 pt-safe border-b border-gray-100 dark:border-gray-800">
+       <div className="px-4 py-3 flex items-center justify-between sticky top-0 bg-white dark:bg-[#121212] z-10 pt-safe border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={handleBack} className="p-2 hover:bg-gray-50 dark:hover:bg-white/10 rounded-full text-gray-600 dark:text-gray-300">
               <ArrowRight className={language === 'en' ? 'rotate-180' : ''} size={22} />
@@ -457,16 +519,18 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
           </button>
        </div>
 
-       <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-6 pb-[50px]">
+       <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-6 pb-[50px] w-full">
           
           <div>
-            <label className="text-xs font-bold text-gray-400 mb-2 block px-1">{t('scope_label')}</label>
+            <label className="text-xs font-bold text-gray-400 mb-2 block px-1">
+              {language === 'ar' ? 'نطاق الانتشار (من سيرى المنشور)' : 'Spread Range (Who will see the post)'}
+            </label>
             <div className="bg-gray-100 dark:bg-gray-900 p-1 rounded-xl flex gap-1">
               <button onClick={() => setScope('local')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${scope === 'local' ? 'bg-white dark:bg-[#1e1e1e] text-blue-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-600'}`}>
-                 <MapPin size={16} /> <span>{t('scope_local')}</span>
+                 <MapPin size={16} /> <span>{language === 'ar' ? 'نطاق محدد' : 'Specific'}</span>
               </button>
               <button onClick={() => setScope('global')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${scope === 'global' ? 'bg-white dark:bg-[#1e1e1e] text-blue-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-600'}`}>
-                 <Globe size={16} /> <span>{t('scope_global')}</span>
+                 <Globe size={16} /> <span>{language === 'ar' ? 'نطاق واسع' : 'Wide'}</span>
               </button>
             </div>
           </div>
@@ -487,6 +551,134 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
           <div className="h-px bg-gray-100 dark:bg-gray-800 w-full" />
 
           {isJobPost && (
+            <>
+              {/* Global Jobs Toggle */}
+              <div className="mb-6">
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-2 border-purple-300 dark:border-purple-700 rounded-xl p-4 mb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="bg-purple-500 p-2 rounded-lg">
+                      <Globe size={20} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-purple-900 dark:text-purple-100 mb-1">
+                        {language === 'ar' ? '🌍 نشر في صفحة الوظائف العالمية' : '🌍 Publish in Global Jobs Page'}
+                      </h3>
+                      <p className="text-xs text-purple-700 dark:text-purple-300 leading-relaxed">
+                        {language === 'ar' 
+                          ? '⚠️ هذه صفحة منفصلة تماماً عن الوظائف العادية. تتطلب رابط تقديم ومكان عمل خارجي.' 
+                          : '⚠️ This is a completely separate page from regular jobs. Requires application link and external work location.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-900 p-1 rounded-xl flex gap-1">
+                  <button 
+                    onClick={() => handleGlobalJobToggle(false)} 
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${!isGlobalJob ? 'bg-white dark:bg-[#1e1e1e] text-blue-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-600'}`}
+                  >
+                    {language === 'ar' ? 'وظيفة عادية' : 'Regular Job'}
+                  </button>
+                  <button 
+                    onClick={() => handleGlobalJobToggle(true)} 
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${isGlobalJob ? 'bg-white dark:bg-[#1e1e1e] text-blue-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-600'}`}
+                  >
+                    {language === 'ar' ? '🌍 وظيفة عالمية' : '🌍 Global Job'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Global Job Fields */}
+              {isGlobalJob && (
+                <div className="mb-6 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle size={16} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs text-yellow-900 dark:text-yellow-100 font-bold mb-1">
+                          {language === 'ar' ? 'تنبيه مهم:' : 'Important Notice:'}
+                        </p>
+                        <p className="text-xs text-yellow-800 dark:text-yellow-200 leading-relaxed">
+                          {language === 'ar' 
+                            ? '• لن يظهر هذا المنشور في صفحة الوظائف العادية\n• سيظهر فقط في صفحة "الوظائف العالمية" المنفصلة\n• يجب ملء رابط التقديم ومكان العمل' 
+                            : '• This post will NOT appear in regular jobs page\n• It will ONLY appear in separate "Global Jobs" page\n• Application link and work location are required'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block px-1">
+                      {language === 'ar' ? 'رابط التقديم *' : 'Application URL *'}
+                    </label>
+                    <input 
+                      type="url" 
+                      placeholder="https://example.com/apply" 
+                      value={applicationUrl} 
+                      onChange={(e) => setApplicationUrl(e.target.value)} 
+                      className="w-full bg-gray-50 dark:bg-gray-900 rounded-xl py-2.5 px-3 text-sm font-bold outline-none focus:bg-white dark:focus:bg-[#1e1e1e] focus:ring-2 focus:ring-blue-500 transition-all dir-ltr dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block px-1">
+                      {language === 'ar' ? 'مكان العمل *' : 'Work Location *'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder={language === 'ar' ? 'مثال: الرياض، المملكة العربية السعودية' : 'Example: Riyadh, Saudi Arabia'} 
+                      value={workLocation} 
+                      onChange={(e) => setWorkLocation(e.target.value)} 
+                      className="w-full bg-gray-50 dark:bg-gray-900 rounded-xl py-2.5 px-3 text-sm font-bold outline-none focus:bg-white dark:focus:bg-[#1e1e1e] focus:ring-2 focus:ring-blue-500 transition-all dir-auto dark:text-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 mb-1 block px-1">
+                        {language === 'ar' ? 'الراتب (اختياري)' : 'Salary (optional)'}
+                      </label>
+                      <input 
+                        type="text" 
+                        placeholder={language === 'ar' ? 'مثال: 5000 ريال' : 'e.g. $5000'} 
+                        value={salary} 
+                        onChange={(e) => setSalary(e.target.value)} 
+                        className="w-full bg-gray-50 dark:bg-gray-900 rounded-xl py-2.5 px-3 text-sm font-bold outline-none focus:bg-white dark:focus:bg-[#1e1e1e] focus:ring-2 focus:ring-blue-500 transition-all dir-auto dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 mb-1 block px-1">
+                        {language === 'ar' ? 'عدد الموظفين' : 'No. of Employees'}
+                      </label>
+                      <input 
+                        type="number" 
+                        placeholder={language === 'ar' ? 'مثال: 5' : 'e.g. 5'} 
+                        value={numberOfEmployees} 
+                        onChange={(e) => setNumberOfEmployees(e.target.value)} 
+                        min="1"
+                        className="w-full bg-gray-50 dark:bg-gray-900 rounded-xl py-2.5 px-3 text-sm font-bold outline-none focus:bg-white dark:focus:bg-[#1e1e1e] focus:ring-2 focus:ring-blue-500 transition-all dir-ltr dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block px-1">
+                      {language === 'ar' ? 'متطلبات العمر (اختياري)' : 'Age Requirement (optional)'}
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder={language === 'ar' ? 'مثال: 18-35' : 'e.g. 18-35'} 
+                      value={ageRequirement} 
+                      onChange={(e) => setAgeRequirement(e.target.value)} 
+                      className="w-full bg-gray-50 dark:bg-gray-900 rounded-xl py-2.5 px-3 text-sm font-bold outline-none focus:bg-white dark:focus:bg-[#1e1e1e] focus:ring-2 focus:ring-blue-500 transition-all dir-ltr dark:text-white"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {isJobPost && !isGlobalJob && (
             <div className="mb-6">
               <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2 px-1"><Briefcase size={16} className="text-purple-600" />{t('job_type_title')}</h3>
               
@@ -526,8 +718,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
             </div>
           )}
 
-          <div className="mb-6">
-            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2 px-1"><Eye size={16} className="text-purple-600" />{t('scope_visibility')}</h3>
+          {!isGlobalJob && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2 px-1"><Eye size={16} className="text-purple-600" />{t('scope_visibility')}</h3>
             <div className="space-y-2">
               <button onClick={() => handlePublishScopeChange('home_and_category')} className={`w-full p-4 rounded-xl border-2 transition-all text-start ${publishScope === 'home_and_category' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-800 hover:border-purple-300'}`}>
                 <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{t('scope_home_category')}</h4>
@@ -554,9 +747,11 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
               )}
             </div>
           </div>
+          )}
 
-          <div className="h-px bg-gray-100 dark:bg-gray-800 w-full" />
+          {!isGlobalJob && <div className="h-px bg-gray-100 dark:bg-gray-800 w-full" />}
 
+          {!isGlobalJob && (
           <div>
              <h3 className="text-xs font-bold text-gray-400 mb-3 px-1">{t('contact_info_title')}</h3>
              <div className="space-y-3 mb-4">
@@ -575,8 +770,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
                  <button onClick={() => toggleContactMethod('email')} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${contactMethods.email ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-400'}`}>{t('contact_method_email')}</button>
              </div>
           </div>
+          )}
 
-          <div className="h-px bg-gray-100 dark:bg-gray-800 w-full" />
+          {!isGlobalJob && <div className="h-px bg-gray-100 dark:bg-gray-800 w-full" />}
 
           <div onClick={handlePremiumClick} className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-300 border ${isPremium ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:border-gray-300'}`}>
              <div className="flex items-center gap-3">

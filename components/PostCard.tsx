@@ -114,9 +114,30 @@ const getCategoryIcon = (categoryName: string | undefined) => {
     return Building2; // Default
 };
 
+// Helper function to check if post is Haraj (marketplace)
+const isHarajPost = (post: Post): boolean => {
+  // Check if type is explicitly 'haraj'
+  if (post.type === 'haraj') return true;
+  
+  // Check if category is one of the haraj categories
+  const HARAJ_CATEGORIES = [
+    'سيارات', 'عقارات', 'أجهزة منزلية', 'أثاث ومفروشات', 
+    'جوالات', 'لابتوبات وكمبيوتر', 'كاميرات وتصوير', 'ألعاب فيديو',
+    'ملابس وموضة', 'ساعات ومجوهرات', 'حيوانات أليفة', 'طيور',
+    'معدات ثقيلة', 'قطع غيار', 'تحف ومقتنيات', 'كتب ومجلات',
+    'أدوات رياضية', 'مستلزمات أطفال', 'خيم وتخييم', 'أرقام مميزة',
+    'نقل عفش', 'أدوات أخرى'
+  ];
+  
+  return !!(post.category && HARAJ_CATEGORIES.includes(post.category));
+};
+
 const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, onReport, onProfileClick, isActive = true, hideActions = false, disableProfileClick = false }) => {
   const { t, language, translationTarget, setTranslationTarget } = useLanguage();
   const currentUserId = localStorage.getItem('userId');
+  
+  // Check if this is a haraj post
+  const isHaraj = isHarajPost(post);
   
   // Extract Media URL
   const rawMediaUrl = post.media && post.media.length > 0 ? post.media[0].url : post.image;
@@ -146,6 +167,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
   const [likesCount, setLikesCount] = useState(post.likes);
   const [commentsCount, setCommentsCount] = useState(post.comments);
   const [jobStatus, setJobStatus] = useState<'open' | 'negotiating' | 'hired'>(post.jobStatus || 'open');
+  const [harajStatus, setHarajStatus] = useState<'available' | 'sold' | 'deleted'>(post.harajStatus || 'available');
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -196,6 +218,19 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
 
   // The requested WhatsApp message
     const whatsappMessage = WHATSAPP_WELCOME_MESSAGE;
+
+  // Debug logging for haraj posts
+  React.useEffect(() => {
+    if (post.category && isHaraj) {
+      console.log('🔍 Post Debug:', {
+        id: post.id,
+        category: post.category,
+        type: post.type,
+        isHaraj,
+        harajStatus
+      });
+    }
+  }, [post.id, post.category, post.type, isHaraj, harajStatus]);
 
   // --- Dynamic Time & Location Calculation ---
   const getDynamicTime = () => {
@@ -256,7 +291,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     setLikesCount(post.likes);
     setCommentsCount(post.comments);
     setJobStatus(post.jobStatus || 'open');
-  }, [post.isLiked, post.likes, post.comments, post.id, post.jobStatus]);
+    setHarajStatus(post.harajStatus || 'available');
+  }, [post.isLiked, post.likes, post.comments, post.id, post.jobStatus, post.harajStatus]);
 
   useEffect(() => {
     setImageError(false);
@@ -672,6 +708,32 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     } catch (e) { setJobStatus(oldStatus); }
   };
 
+  const handleHarajStatus = async (status: 'sold' | 'available') => {
+    const oldStatus = harajStatus; 
+    setHarajStatus(status); 
+    setIsMenuOpen(false);
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/posts/${post.id}/haraj-status`, { 
+            method: 'PUT', 
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${localStorage.getItem('token')}` 
+            }, 
+            body: JSON.stringify({ status }) 
+        });
+        if (!response.ok) setHarajStatus(oldStatus);
+        else window.dispatchEvent(new CustomEvent('post-haraj-status-updated', { detail: { postId: post.id, harajStatus: status } }));
+    } catch (e) { 
+        setHarajStatus(oldStatus); 
+    }
+  };
+
+  const handleCopyPostLink = () => {
+    navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`);
+    alert(t('link_copied'));
+    setIsMenuOpen(false);
+  };
+
   const handleDeletePost = () => { setIsMenuOpen(false); if (onDelete) onDelete(); else setIsDeletePostModalOpen(true); };
   const confirmDeletePost = async () => {
     setIsDeletingPost(true);
@@ -714,7 +776,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
 
   return (
     <div className="mb-0">
-      <div className="bg-white shadow-sm border-b border-gray-100 relative group overflow-hidden">
+      <div className="bg-white shadow-sm pb-3 relative group overflow-hidden">
         
         {/* 1. MEDIA HEADER (Unified Container) */}
         <div className={`relative w-full ${hasMedia ? 'aspect-square md:aspect-video' : 'h-48'} overflow-hidden bg-gray-50 group`}>
@@ -861,8 +923,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
                         onClick={handleAvatarClick}
                     >
                         {post.user.name}
-                        {jobStatus === 'hired' && <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-green-200">{t('status_hired')}</span>}
-                        {jobStatus === 'negotiating' && <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-yellow-200">{t('status_negotiating')}</span>}
+                        {post.type === 'job' && jobStatus === 'hired' && <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-green-200">{t('status_hired')}</span>}
+                        {post.type === 'job' && jobStatus === 'negotiating' && <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-yellow-200">{t('status_negotiating')}</span>}
+                        {isHaraj && harajStatus === 'sold' && <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-emerald-200">{t('status_sold')}</span>}
                     </h3>
                     
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
@@ -1006,15 +1069,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
              <div className="flex justify-center pt-3 pb-2" onClick={() => setIsMenuOpen(false)}><div className="w-12 h-1.5 bg-gray-300 rounded-full" /></div>
              <div className="p-5 pt-2 space-y-2">
                 <button onClick={() => { handleNativeShare(); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100"><Share2 size={22} className="text-blue-600" /><span className="font-bold">{t('share')}</span></button>
-                <button onClick={() => { navigator.clipboard.writeText(`${API_BASE_URL}/share/post/${post.id}`); alert(t('copy_link') + " (تم النسخ)"); setIsMenuOpen(false); }} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100"><Link size={22} className="text-purple-600" /><span className="font-bold">{t('copy_link')}</span></button>
+                <button onClick={handleCopyPostLink} className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-gray-700 border border-gray-100"><Link size={22} className="text-purple-600" /><span className="font-bold">{t('copy_link')}</span></button>
                 {post.user._id === currentUserId ? (
                    <>
-                     <div className="bg-gray-50 rounded-2xl p-2 mb-2">
-                         <button onClick={() => handleJobStatus('hired')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-green-700"><div className="p-2 bg-green-100 rounded-full"><CheckCircle size={20} /></div><span className="font-bold text-sm">{t('status_mark_hired')}</span>{jobStatus === 'hired' && <Check size={16} className="ml-auto" />}</button>
-                         <button onClick={() => handleJobStatus('negotiating')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-yellow-700"><div className="p-2 bg-yellow-100 rounded-full"><Clock size={20} /></div><span className="font-bold text-sm">{t('status_mark_negotiating')}</span>{jobStatus === 'negotiating' && <Check size={16} className="ml-auto" />}</button>
-                         {(jobStatus === 'hired' || jobStatus === 'negotiating') && (<button onClick={() => handleJobStatus('open')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-blue-700"><div className="p-2 bg-blue-100 rounded-full"><Briefcase size={20} /></div><span className="font-bold text-sm">{t('status_reopen')}</span></button>)}
-                     </div>
-                     <button onClick={handleDeletePost} className="w-full flex items-center gap-3 p-4 bg-red-50 hover:bg-red-100 rounded-2xl transition-colors text-red-600 mb-2"><Trash2 size={22} /><span className="font-bold">{t('delete')}</span></button>
+                     {post.type === 'job' && (
+                       <div className="bg-gray-50 rounded-2xl p-2 mb-2">
+                           <button onClick={() => handleJobStatus('hired')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-green-700"><div className="p-2 bg-green-100 rounded-full"><CheckCircle size={20} /></div><span className="font-bold text-sm">{t('status_mark_hired')}</span>{jobStatus === 'hired' && <Check size={16} className="ml-auto" />}</button>
+                           <button onClick={() => handleJobStatus('negotiating')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-yellow-700"><div className="p-2 bg-yellow-100 rounded-full"><Clock size={20} /></div><span className="font-bold text-sm">{t('status_mark_negotiating')}</span>{jobStatus === 'negotiating' && <Check size={16} className="ml-auto" />}</button>
+                           {(jobStatus === 'hired' || jobStatus === 'negotiating') && (<button onClick={() => handleJobStatus('open')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-blue-700"><div className="p-2 bg-blue-100 rounded-full"><Briefcase size={20} /></div><span className="font-bold text-sm">{t('status_reopen')}</span></button>)}
+                       </div>
+                     )}
+                     {isHaraj && (
+                       <div className="bg-gray-50 rounded-2xl p-2 mb-2">
+                           <button onClick={() => handleHarajStatus('sold')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-emerald-700"><div className="p-2 bg-emerald-100 rounded-full"><CheckCircle size={20} /></div><span className="font-bold text-sm">{t('status_mark_sold')}</span>{harajStatus === 'sold' && <Check size={16} className="ml-auto" />}</button>
+                           {harajStatus === 'sold' && (<button onClick={() => handleHarajStatus('available')} className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-all text-blue-700"><div className="p-2 bg-blue-100 rounded-full"><Tag size={20} /></div><span className="font-bold text-sm">{t('status_mark_available')}</span></button>)}
+                       </div>
+                     )}
+                     <button onClick={handleDeletePost} className="w-full flex items-center gap-3 p-4 bg-red-50 hover:bg-red-100 rounded-2xl transition-colors text-red-600 mb-2"><Trash2 size={22} /><span className="font-bold">{t('delete_post')}</span></button>
                    </>
                 ) : (
                    <>
