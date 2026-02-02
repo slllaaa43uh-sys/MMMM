@@ -913,11 +913,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
 
   return (
     <div 
-        className="fixed inset-0 z-[110] bg-white dark:bg-black animate-in slide-in-from-right duration-300 overflow-y-auto no-scrollbar"
-        onScroll={handleScroll}
+        className="fixed inset-0 z-[110] bg-white dark:bg-black animate-in slide-in-from-right duration-300 flex flex-col overflow-hidden"
         ref={containerRef}
     >
-      
+      <div className="flex-1 overflow-y-auto no-scrollbar" onScroll={handleScroll}>
       {/* 1. Header Background */}
       <div className="relative">
         <div className="h-64 relative overflow-hidden">
@@ -1309,6 +1308,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onClose, onReport, userId, on
            </div>
       )}
 
+      </div>
     </div>
   );
 };

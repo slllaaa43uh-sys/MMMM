@@ -46,10 +46,37 @@ export const getActivePromotions = async (): Promise<PromotionsResponse> => {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch active promotions');
+      console.warn('Failed to fetch active promotions:', response.status);
+      return {
+        success: false,
+        activeCount: 0,
+        hasActivePromotions: false,
+        promotions: []
+      };
     }
 
     const data = await response.json();
+    
+    // تحويل response الباكند إلى الصيغة المتوقعة
+    if (data.success && data.subscriptions) {
+      const promotions = data.subscriptions.map((sub: any) => ({
+        postId: sub.postId,
+        postTitle: sub.postTitle,
+        postContent: sub.postContent,
+        promotionType: sub.promotionType,
+        expiresAt: sub.expiresAt,
+        timeRemaining: calculateTimeRemaining(sub.expiresAt),
+        isExpired: sub.isExpired || calculateTimeRemaining(sub.expiresAt).isExpired
+      }));
+
+      return {
+        success: true,
+        activeCount: data.activeCount || promotions.filter((p: ActivePromotion) => !p.isExpired).length,
+        hasActivePromotions: promotions.some((p: ActivePromotion) => !p.isExpired),
+        promotions
+      };
+    }
+
     return data;
   } catch (error) {
     console.error('Error fetching active promotions:', error);
