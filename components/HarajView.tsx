@@ -12,6 +12,7 @@ import { API_BASE_URL, WHATSAPP_WELCOME_MESSAGE } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getDisplayLocation } from '../data/locations';
 import { registerForPushNotifications, requestPermissions, getStoredToken } from '../services/pushNotifications';
+import { BadgeCounterService } from '../services/badgeCounterService';
 import Logo from './Logo';
 import Avatar from './Avatar';
 
@@ -124,6 +125,9 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
   const { t, language, translationTarget, setTranslationTarget } = useLanguage();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+
+    // Category Counts State (Badge Numbers)
+    const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   
   // Loading States
   const [loading, setLoading] = useState(false);
@@ -204,6 +208,52 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
     onFullScreenToggle(false);
     setPosts([]);
   };
+
+    // Fetch category counts for badges
+    useEffect(() => {
+        const fetchCategoryCounts = async () => {
+            const counts = await BadgeCounterService.fetchPostCounts();
+            if (counts?.haraj?.categories) {
+                setCategoryCounts(counts.haraj.categories);
+            }
+        };
+
+        fetchCategoryCounts();
+
+        // تحديث كل 30 ثانية
+        const interval = setInterval(fetchCategoryCounts, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Refresh counts immediately on delete/status updates
+    useEffect(() => {
+        const refreshCounts = async () => {
+            const counts = await BadgeCounterService.fetchPostCounts();
+            if (counts?.haraj?.categories) setCategoryCounts(counts.haraj.categories);
+        };
+
+        const onPostDeleted = (e: any) => {
+            const postId = e?.detail?.postId;
+            if (postId) setPosts(prev => prev.filter(p => String(p.id) !== String(postId)));
+            refreshCounts();
+        };
+
+        const onHarajStatusUpdated = (e: any) => {
+            const postId = e?.detail?.postId;
+            const harajStatus = e?.detail?.harajStatus;
+            if (postId && harajStatus === 'sold') {
+                setPosts(prev => prev.filter(p => String(p.id) !== String(postId)));
+            }
+            refreshCounts();
+        };
+
+        window.addEventListener('post-deleted', onPostDeleted as EventListener);
+        window.addEventListener('post-haraj-status-updated', onHarajStatusUpdated as EventListener);
+        return () => {
+            window.removeEventListener('post-deleted', onPostDeleted as EventListener);
+            window.removeEventListener('post-haraj-status-updated', onHarajStatusUpdated as EventListener);
+        };
+    }, []);
 
   // 1. Check Local Subscription State
   useEffect(() => {
@@ -314,7 +364,6 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const currentUserId = localStorage.getItem('userId');
 
     // Removed the "&& token" check so guests can fetch posts
     if (activeCategory) {
@@ -340,13 +389,7 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
         .then(data => {
           const postsArray = data.posts || [];
           if (Array.isArray(postsArray) && postsArray.length > 0) {
-            // If logged in, filter out own posts. If guest, show all.
-            const filteredPosts = postsArray.filter((p: any) => {
-                const postUserId = p.user?._id || p.user?.id || p.user;
-                return postUserId !== currentUserId;
-            });
-
-            const mappedPosts: Post[] = filteredPosts.map((p: any) => {
+                        const mappedPosts: Post[] = postsArray.map((p: any) => {
               let locationString = t('location_general');
               if (p.scope === 'local' && p.country) {
                  const postLoc = getDisplayLocation(p.country, p.city === 'كل المدن' ? null : p.city, language as 'ar'|'en');
@@ -989,7 +1032,10 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
       </div>
 
       <div className="flex flex-col gap-[1px] bg-gray-100 dark:bg-gray-800 mt-1 pb-20">
-        {HARAJ_CATEGORIES.map((cat, idx) => (
+                {HARAJ_CATEGORIES.map((cat, idx) => {
+                    const totalCount = categoryCounts[cat.name] || 0;
+
+                    return (
           <div 
             key={idx}
             onClick={() => handleCategoryClick(cat.name)}
@@ -1001,9 +1047,17 @@ const HarajView: React.FC<HarajViewProps> = ({ onFullScreenToggle, currentLocati
               </div>
               <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{t(cat.name)}</span>
             </div>
-            <ChevronLeft size={18} className={`text-gray-300 ${language === 'en' ? 'rotate-180' : ''}`} />
+                        <div className="flex items-center gap-2">
+                            {totalCount > 0 && (
+                                <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center">
+                                    {totalCount}
+                                </span>
+                            )}
+                            <ChevronLeft size={18} className={`text-gray-300 ${language === 'en' ? 'rotate-180' : ''}`} />
+                        </div>
           </div>
-        ))}
+                    );
+                })}
       </div>
 
       {/* --- MENU TRAY (Bottom Sheet) --- */}

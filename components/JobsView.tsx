@@ -339,9 +339,38 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
     return () => clearInterval(interval);
   }, []);
 
+    // Refresh counts immediately on delete/status updates
+    useEffect(() => {
+        const refreshCounts = async () => {
+            const counts = await BadgeCounterService.fetchPostCounts();
+            if (counts?.jobs?.categories) setCategoryCounts(counts.jobs.categories);
+        };
+
+        const onPostDeleted = (e: any) => {
+            const postId = e?.detail?.postId;
+            if (postId) setPosts(prev => prev.filter(p => String(p.id) !== String(postId)));
+            refreshCounts();
+        };
+
+        const onJobStatusUpdated = (e: any) => {
+            const postId = e?.detail?.postId;
+            const jobStatus = e?.detail?.jobStatus;
+            if (postId && jobStatus === 'hired') {
+                setPosts(prev => prev.filter(p => String(p.id) !== String(postId)));
+            }
+            refreshCounts();
+        };
+
+        window.addEventListener('post-deleted', onPostDeleted as EventListener);
+        window.addEventListener('post-status-updated', onJobStatusUpdated as EventListener);
+        return () => {
+            window.removeEventListener('post-deleted', onPostDeleted as EventListener);
+            window.removeEventListener('post-status-updated', onJobStatusUpdated as EventListener);
+        };
+    }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const currentUserId = localStorage.getItem('userId');
 
     // Removed the "&& token" check so guests can fetch posts
     if (activeSubPage) {
@@ -369,15 +398,7 @@ const JobsView: React.FC<JobsViewProps> = ({ onFullScreenToggle, currentLocation
             const postsArray = data.posts || [];
             if (Array.isArray(postsArray) && postsArray.length > 0) {
                 // CRITICAL FIX: Filter out global jobs from regular jobs page
-                // If logged in, filter out own posts and global jobs. If guest, filter out global jobs only.
-                const filteredPosts = postsArray.filter((p: any) => {
-                    // Exclude global jobs from regular jobs page
-                    if (p.isGlobalJob === true) {
-                        return false;
-                    }
-                    const postUserId = p.user?._id || p.user?.id || p.user;
-                    return postUserId !== currentUserId;
-                });
+                const filteredPosts = postsArray.filter((p: any) => p.isGlobalJob !== true);
 
                 const mappedPosts: Post[] = filteredPosts.map((p: any) => {
                     let locationString = t('location_general');

@@ -739,7 +739,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, variant = 'feed', onDelete, o
     setIsDeletingPost(true);
     try {
         const response = await fetch(`${API_BASE_URL}/api/v1/posts/${post.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
-        if (response.ok) { setIsVisible(false); setIsDeletePostModalOpen(false); } else { setIsDeletePostModalOpen(false); }
+                if (response.ok) {
+                        setIsVisible(false);
+                        setIsDeletePostModalOpen(false);
+                        try {
+                            window.dispatchEvent(new CustomEvent('post-deleted', { detail: { postId: post.id } }));
+                        } catch {}
+                } else {
+                        setIsDeletePostModalOpen(false);
+                }
     } catch (e) { setIsDeletePostModalOpen(false); } finally { setIsDeletingPost(false); }
   };
 

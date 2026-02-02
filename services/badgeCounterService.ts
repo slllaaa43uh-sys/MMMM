@@ -70,6 +70,13 @@ export const BadgeCounterService = {
             
             // Store the actual data structure
             currentCounts = data.data || data;
+
+                        // Notify UI listeners that counts changed
+                        try {
+                            if (typeof window !== 'undefined') {
+                                window.dispatchEvent(new CustomEvent('badge-counts-updated', { detail: currentCounts }));
+                            }
+                        } catch {}
             
             console.log('🔢 [BadgeCounter] Stored counts:', currentCounts);
             console.log('🔢 [BadgeCounter] Jobs Total:', currentCounts?.jobs?.total);

@@ -273,7 +273,6 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
         }
 
         const token = localStorage.getItem('token');
-        const currentUserId = localStorage.getItem('userId');
         
         try {
             const countryParam = currentLocation.country === 'عام' ? '' : encodeURIComponent(currentLocation.country);
@@ -299,12 +298,7 @@ const UrgentJobsView: React.FC<UrgentJobsViewProps> = ({ onFullScreenToggle, cur
                 const postsArray = data.posts || [];
                 
                 if (Array.isArray(postsArray)) {
-                    const filteredPosts = postsArray.filter((p: any) => {
-                        const ownerId = p.user?._id || p.user?.id || p.user;
-                        return String(ownerId) !== String(currentUserId);
-                    });
-
-                    const mappedPosts: Post[] = filteredPosts.map((p: any) => {
+                    const mappedPosts: Post[] = postsArray.map((p: any) => {
                         let locationString = t('location_general');
                         if (p.scope === 'local' && p.country) {
                             const postLoc = getDisplayLocation(p.country, p.city === 'كل المدن' ? null : p.city, language as 'ar'|'en');

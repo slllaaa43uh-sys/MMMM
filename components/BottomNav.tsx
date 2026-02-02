@@ -15,10 +15,11 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onOpenCr
   const { t } = useLanguage();
   
   // Badge counts state
-  const [jobsCount, setJobsCount] = useState(0);
-  const [harajCount, setHarajCount] = useState(0);
-  const [urgentCount, setUrgentCount] = useState(0);
-  const [globalCount, setGlobalCount] = useState(0);
+  // Initialize from last-known in-memory counts to avoid flicker on remount.
+  const [jobsCount, setJobsCount] = useState(() => BadgeCounterService.getJobsTotalCount());
+  const [harajCount, setHarajCount] = useState(() => BadgeCounterService.getHarajTotalCount());
+  const [urgentCount, setUrgentCount] = useState(() => BadgeCounterService.getUrgentTotalCount());
+  const [globalCount, setGlobalCount] = useState(() => BadgeCounterService.getGlobalJobsTotalCount());
   
   console.log('🔵 [BottomNav] Component rendered');
   console.log('🔵 [BottomNav] Current badge counts:', { jobsCount, harajCount, urgentCount, globalCount });
@@ -45,19 +46,32 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onOpenCr
       console.log('🔵 [BottomNav] State updated with:', { jobs, haraj, urgent, global });
     };
     
+    const fetchAndUpdate = async () => {
+      await BadgeCounterService.fetchPostCounts();
+      updateCounts();
+    };
+
+    const onCountsUpdated = () => {
+      updateCounts();
+    };
+
     // Initial fetch
-    updateCounts();
+    fetchAndUpdate();
     console.log('🔵 [BottomNav] Initial fetch completed');
+
+    // Update immediately when counts change
+    window.addEventListener('badge-counts-updated', onCountsUpdated as EventListener);
     
-    // Poll every 10 seconds to update badges
+    // Poll every 30 seconds as fallback
     const interval = setInterval(() => {
       console.log('🔵 [BottomNav] Polling for badge updates...');
-      updateCounts();
-    }, 10000);
+      fetchAndUpdate();
+    }, 30000);
     
     return () => {
       console.log('🔵 [BottomNav] Cleaning up interval');
       clearInterval(interval);
+      window.removeEventListener('badge-counts-updated', onCountsUpdated as EventListener);
     };
   }, []);
   

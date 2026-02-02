@@ -601,7 +601,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
       <div className="flex-1 flex flex-col px-6 pt-4 pb-safe overflow-y-auto relative">
           
           {/* Animated Background Icons - Increased Count with Logo Colors */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.03]">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.07]">
               {/* Row 1 - Top */}
               <div className="absolute top-8 left-5 animate-bounce" style={{animationDuration: '3s'}}>
                   <User size={42} className="text-blue-600" />
@@ -686,14 +686,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
                 <label className="text-xs font-bold text-gray-700 px-1">{t('email_label')}</label>
                 <div className="relative group">
                     <div className={`absolute inset-y-0 ${language === 'ar' ? 'right-0 pr-4' : 'left-0 pl-4'} flex items-center pointer-events-none`}>
-                        <Mail size={18} className="text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                        <Mail size={20} className="text-gray-400 group-focus-within:text-blue-600 transition-colors" />
                     </div>
                     <input
                         type="email"
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className={`block w-full py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-sm ${language === 'ar' ? 'pr-11 pl-4 text-right' : 'pl-11 pr-4 text-left'}`}
+                        className={`block w-full py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-sm ${language === 'ar' ? 'pr-11 pl-4 text-right' : 'pl-11 pr-4 text-left'}`}
                         placeholder={t('email_placeholder')}
                         dir="ltr"
                     />
@@ -704,14 +704,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
                 <label className="text-xs font-bold text-gray-700 px-1">{t('password_label')}</label>
                 <div className="relative group">
                     <div className={`absolute inset-y-0 ${language === 'ar' ? 'right-0 pr-4' : 'left-0 pl-4'} flex items-center pointer-events-none`}>
-                        <Lock size={18} className="text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                        <Lock size={20} className="text-gray-400 group-focus-within:text-blue-600 transition-colors" />
                     </div>
                     <input
                         type="password"
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className={`block w-full py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-sm ${language === 'ar' ? 'pr-11 pl-4 text-right' : 'pl-11 pr-4 text-left'}`}
+                        className={`block w-full py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-sm ${language === 'ar' ? 'pr-11 pl-4 text-right' : 'pl-11 pr-4 text-left'}`}
                         placeholder="••••••••"
                         dir="ltr"
                     />
@@ -728,7 +728,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2 bg-gradient-to-r from-blue-600 via-cyan-500 to-green-500 hover:opacity-90 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-1"
+                            className="w-full py-3 bg-gradient-to-r from-blue-600 via-cyan-500 to-green-500 hover:opacity-90 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-1"
             >
               {isLoading ? (
                   <Loader2 size={20} className="animate-spin" />
@@ -761,7 +761,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
                type="button"
                onClick={handleGoogleSignIn}
                disabled={googleLoading}
-               className="w-full py-2 border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                             className="w-full py-3 border-2 border-gray-200 bg-white text-gray-700 hover:bg-gray-50 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
              >
                {googleLoading ? (
                  <Loader2 size={20} className="animate-spin text-gray-600" />
@@ -780,7 +780,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
 
              <button 
                onClick={() => setIsRegisterOpen(true)}
-               className="w-full py-2.5 border-2 border-gray-100 hover:border-blue-100 bg-white text-gray-700 hover:text-blue-600 rounded-xl font-bold text-sm transition-all"
+                             className="w-full py-3 border-2 border-gray-100 hover:border-blue-100 bg-white text-gray-700 hover:text-blue-600 rounded-xl font-bold text-sm transition-all"
              >
                {t('create_new_account')}
              </button>
