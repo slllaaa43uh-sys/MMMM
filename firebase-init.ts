@@ -38,7 +38,9 @@ try {
 GoogleAuth.initialize({
   clientId: '951669845862-ijkmvh127cro19u3d3gkmhb3a2t4l2vi.apps.googleusercontent.com',
   scopes: ['profile', 'email'],
-  grantOfflineAccess: true,
+  // Backend only needs a Firebase ID token; offline access (server auth code) is not required.
+  // Disabling it avoids extra network calls that can time out on some Android setups.
+  grantOfflineAccess: false,
 });
 
 // Auth & Google Provider

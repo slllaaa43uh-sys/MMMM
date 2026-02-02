@@ -230,14 +230,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
       let user: any;
       
       if (isNative) {
-        // Native Google Sign-In (Android/iOS)
-        const result = await GoogleAuth.signIn();
-        idToken = result.authentication.idToken;
-        user = {
-          displayName: result.name,
-          email: result.email,
-          photoURL: result.imageUrl
-        };
+                // Native Google Sign-In (Android/iOS)
+                // IMPORTANT: Backend verifies a Firebase ID Token via firebase-admin (verifyIdToken).
+                // The Capacitor plugin returns a Google OAuth ID token, so we must exchange it for a Firebase session.
+                const googleResult = await GoogleAuth.signIn();
+                const googleIdToken = googleResult?.authentication?.idToken;
+                if (!googleIdToken) {
+                    throw new Error('Missing Google ID token');
+                }
+
+                const { auth } = await import('../firebase-init');
+                const { GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
+
+                const credential = GoogleAuthProvider.credential(googleIdToken);
+                const userCredential = await signInWithCredential(auth, credential);
+                idToken = await userCredential.user.getIdToken();
+                user = userCredential.user;
       } else {
         // Web Google Sign-In (Browser)
         const { signInWithPopup } = await import('firebase/auth');
@@ -592,25 +600,78 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
       {/* --- Main Content Area --- */}
       <div className="flex-1 flex flex-col px-6 pt-4 pb-safe overflow-y-auto relative">
           
-          {/* Animated Background Icons */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-5">
-              <div className="absolute top-10 left-5 animate-bounce" style={{animationDuration: '3s'}}>
-                  <User size={40} className="text-blue-500" />
+          {/* Animated Background Icons - Increased Count with Logo Colors */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.03]">
+              {/* Row 1 - Top */}
+              <div className="absolute top-8 left-5 animate-bounce" style={{animationDuration: '3s'}}>
+                  <User size={42} className="text-blue-600" />
               </div>
-              <div className="absolute top-20 right-8 animate-pulse" style={{animationDuration: '4s'}}>
-                  <Mail size={35} className="text-cyan-500" />
+              <div className="absolute top-6 left-24 animate-pulse" style={{animationDuration: '4.5s', animationDelay: '0.5s'}}>
+                  <ShieldCheck size={38} className="text-cyan-500" />
               </div>
-              <div className="absolute top-40 left-12 animate-bounce" style={{animationDuration: '5s', animationDelay: '1s'}}>
-                  <Lock size={30} className="text-green-500" />
+              <div className="absolute top-12 right-8 animate-pulse" style={{animationDuration: '4s'}}>
+                  <Mail size={40} className="text-green-500" />
               </div>
-              <div className="absolute bottom-40 right-6 animate-pulse" style={{animationDuration: '4.5s', animationDelay: '0.5s'}}>
-                  <Building2 size={38} className="text-purple-500" />
+              <div className="absolute top-16 right-28 animate-bounce" style={{animationDuration: '4.2s', animationDelay: '1s'}}>
+                  <UserPlus size={36} className="text-blue-600" />
               </div>
-              <div className="absolute bottom-20 left-8 animate-bounce" style={{animationDuration: '3.5s', animationDelay: '1.5s'}}>
-                  <Briefcase size={32} className="text-blue-400" />
+              
+              {/* Row 2 - Upper Middle */}
+              <div className="absolute top-28 left-12 animate-pulse" style={{animationDuration: '3.8s', animationDelay: '0.8s'}}>
+                  <Building2 size={44} className="text-cyan-500" />
               </div>
               <div className="absolute top-32 right-14 animate-pulse" style={{animationDuration: '5s', animationDelay: '2s'}}>
-                  <Globe size={36} className="text-green-400" />
+                  <Globe size={40} className="text-green-500" />
+              </div>
+              <div className="absolute top-36 left-32 animate-bounce" style={{animationDuration: '4.6s', animationDelay: '1.2s'}}>
+                  <Briefcase size={35} className="text-blue-600" />
+              </div>
+              
+              {/* Row 3 - Middle */}
+              <div className="absolute top-48 right-10 animate-pulse" style={{animationDuration: '3.5s', animationDelay: '0.3s'}}>
+                  <Lock size={38} className="text-cyan-500" />
+              </div>
+              <div className="absolute top-52 left-8 animate-bounce" style={{animationDuration: '4.8s', animationDelay: '1.8s'}}>
+                  <MapPin size={40} className="text-green-500" />
+              </div>
+              <div className="absolute top-56 right-32 animate-pulse" style={{animationDuration: '3.2s', animationDelay: '2.5s'}}>
+                  <Phone size={34} className="text-blue-600" />
+              </div>
+              
+              {/* Row 4 - Lower Middle */}
+              <div className="absolute bottom-52 left-16 animate-bounce" style={{animationDuration: '4.3s', animationDelay: '0.7s'}}>
+                  <Send size={36} className="text-cyan-500" />
+              </div>
+              <div className="absolute bottom-48 right-6 animate-pulse" style={{animationDuration: '4.5s', animationDelay: '0.5s'}}>
+                  <Building2 size={42} className="text-green-500" />
+              </div>
+              <div className="absolute bottom-44 left-36 animate-bounce" style={{animationDuration: '3.6s', animationDelay: '1.4s'}}>
+                  <Globe size={38} className="text-blue-600" />
+              </div>
+              
+              {/* Row 5 - Bottom */}
+              <div className="absolute bottom-28 right-24 animate-pulse" style={{animationDuration: '4.9s', animationDelay: '2.2s'}}>
+                  <Mail size={37} className="text-cyan-500" />
+              </div>
+              <div className="absolute bottom-20 left-8 animate-bounce" style={{animationDuration: '3.5s', animationDelay: '1.5s'}}>
+                  <Briefcase size={40} className="text-green-500" />
+              </div>
+              <div className="absolute bottom-16 right-12 animate-pulse" style={{animationDuration: '4.1s', animationDelay: '0.9s'}}>
+                  <User size={35} className="text-blue-600" />
+              </div>
+              <div className="absolute bottom-12 left-28 animate-bounce" style={{animationDuration: '3.9s', animationDelay: '1.6s'}}>
+                  <ShieldCheck size={39} className="text-cyan-500" />
+              </div>
+              
+              {/* Additional Icons - Corners and Edges */}
+              <div className="absolute top-20 left-44 animate-pulse" style={{animationDuration: '5.2s', animationDelay: '2.8s'}}>
+                  <Lock size={33} className="text-green-500" />
+              </div>
+              <div className="absolute bottom-36 right-40 animate-bounce" style={{animationDuration: '3.7s', animationDelay: '1.1s'}}>
+                  <Phone size={36} className="text-blue-600" />
+              </div>
+              <div className="absolute top-44 right-48 animate-pulse" style={{animationDuration: '4.4s', animationDelay: '0.6s'}}>
+                  <MapPin size={34} className="text-cyan-500" />
               </div>
           </div>
           
@@ -619,7 +680,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
              <p className="text-gray-500 text-xs font-medium">{t('login_subtitle')}</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-2.5 w-full px-6">
+          <form onSubmit={handleLogin} className="space-y-2.5 w-full px-3">
             
             <div className="space-y-0.5">
                 <label className="text-xs font-bold text-gray-700 px-1">{t('email_label')}</label>
@@ -680,7 +741,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGuestEnter }) =
             </button>
           </form>
 
-          <div className="mt-3 flex flex-col items-center gap-2 w-full px-6">
+          <div className="mt-3 flex flex-col items-center gap-2 w-full px-3">
              <button 
                 type="button"
                 onClick={() => setIsForgotPasswordOpen(true)} 
