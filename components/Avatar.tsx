@@ -8,14 +8,33 @@ interface AvatarProps {
   textClassName?: string;
 }
 
+// Cache للصور المحملة بنجاح - يبقى طول الجلسة
+const loadedImagesCache = new Set<string>();
+const errorImagesCache = new Set<string>();
+
 const Avatar: React.FC<AvatarProps> = ({ name, src, className = 'w-10 h-10', textClassName = 'text-lg' }) => {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  // تحقق من الـ cache أولاً
+  const isCachedLoaded = src ? loadedImagesCache.has(src) : false;
+  const isCachedError = src ? errorImagesCache.has(src) : false;
+  
+  const [imageError, setImageError] = useState(isCachedError);
+  const [imageLoaded, setImageLoaded] = useState(isCachedLoaded);
 
   // Reset states when src changes
   useEffect(() => {
-    setImageError(false);
-    setImageLoaded(false);
+    if (!src) return;
+    
+    // تحقق من الـ cache
+    if (loadedImagesCache.has(src)) {
+      setImageLoaded(true);
+      setImageError(false);
+    } else if (errorImagesCache.has(src)) {
+      setImageError(true);
+      setImageLoaded(false);
+    } else {
+      setImageError(false);
+      setImageLoaded(false);
+    }
   }, [src]);
 
   const getFirstLetter = (nameStr: string): string => {
@@ -62,8 +81,14 @@ const Avatar: React.FC<AvatarProps> = ({ name, src, className = 'w-10 h-10', tex
           src={src}
           alt={name}
           className={`${className} rounded-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0 absolute'}`}
-          onLoad={() => setImageLoaded(true)}
-          onError={() => setImageError(true)}
+          onLoad={() => {
+            setImageLoaded(true);
+            if (src) loadedImagesCache.add(src); // حفظ في الـ cache
+          }}
+          onError={() => {
+            setImageError(true);
+            if (src) errorImagesCache.add(src); // حفظ الخطأ في الـ cache
+          }}
         />
       </>
     );
