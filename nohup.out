@@ -1,0 +1,8 @@
+[main 55e3b23] Add subscriptions
+ 10 files changed, 519 insertions(+), 21 deletions(-)
+ create mode 100644 check-git.sh
+ create mode 100644 components/SubscriptionsView.tsx
+ create mode 100644 nohup.out
+ create mode 100644 services/promotionService.ts
+To https://github.com/slllaaa43uh-sys/MMMM
+   8e8ef9f..55e3b23  main -> main

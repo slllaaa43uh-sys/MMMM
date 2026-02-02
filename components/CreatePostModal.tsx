@@ -332,7 +332,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
   if (step === 1) {
       return (
-        <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-bottom duration-300 flex flex-col max-w-[100vw] max-h-[100vh] overflow-hidden">
+        <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-bottom duration-300 flex flex-col overflow-hidden" style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
           {/* Step 1 Content (Same as before) */}
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 bg-white dark:bg-[#121212] z-10 pt-safe flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -498,7 +498,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
   const isUrgentMode = publishScope === 'urgent_page';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-left duration-300 flex flex-col max-w-[100vw] max-h-[100vh] overflow-hidden">
+    <div className="fixed inset-0 z-[100] bg-white dark:bg-black animate-in slide-in-from-left duration-300 flex flex-col overflow-hidden" style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
        
        <div className="px-4 py-3 flex items-center justify-between sticky top-0 bg-white dark:bg-[#121212] z-10 pt-safe border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-3">

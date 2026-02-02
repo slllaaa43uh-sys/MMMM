@@ -13,28 +13,46 @@ const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeCount, setActiveCount] = useState(0);
 
+  // منع scroll للصفحة الخلفية
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   // جلب البيانات عند التحميل
   useEffect(() => {
     fetchPromotions();
+  }, []);
+
+  // تحديث العرض كل ثانية لتحديث العداد التنازلي
+  useEffect(() => {
+    if (promotions.length === 0) return;
     
-    // تحديث الوقت المتبقي كل ثانية
     const interval = setInterval(() => {
-      setPromotions(prev => [...prev]); // Force re-render لتحديث الوقت
+      // فقط نفذ forceUpdate بدون تعديل البيانات
+      setActiveCount(prev => prev);
     }, 1000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [promotions.length]);
 
   const fetchPromotions = async () => {
     setIsLoading(true);
     try {
       const data = await getActivePromotions();
-      if (data.success) {
-        setPromotions(data.promotions);
-        setActiveCount(data.activeCount);
+      if (data && data.success) {
+        setPromotions(data.promotions || []);
+        setActiveCount(data.activeCount || 0);
+      } else {
+        setPromotions([]);
+        setActiveCount(0);
       }
     } catch (error) {
       console.error('Error fetching promotions:', error);
+      setPromotions([]);
+      setActiveCount(0);
     } finally {
       setIsLoading(false);
     }
