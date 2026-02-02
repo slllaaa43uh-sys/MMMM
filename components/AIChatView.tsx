@@ -225,7 +225,7 @@ const AIChatView: React.FC<AIChatViewProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-white dark:bg-black flex flex-col animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-0 z-[9999] bg-white dark:bg-black flex flex-col animate-in slide-in-from-right duration-300" onClick={(e) => e.stopPropagation()}>
       
       {/* Header */}
       <div className="px-4 py-3 bg-white dark:bg-[#121212] border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 z-20 pt-safe shadow-sm">

@@ -14,6 +14,7 @@ interface HeaderProps {
   onAIChatClick: () => void;
   onSearchClick: () => void; // New Prop
   unreadCount?: number;
+  hasActiveSubscriptions?: boolean; // New: badge for settings
   isVisible?: boolean; // New prop for visibility
   areActionsVisible?: boolean; // New prop for actions visibility
 }
@@ -27,6 +28,7 @@ const Header: React.FC<HeaderProps> = ({
   onAIChatClick,
   onSearchClick,
   unreadCount,
+  hasActiveSubscriptions,
   isVisible = true, // Default to visible
   areActionsVisible = true // Default to visible
 }) => {
@@ -115,9 +117,12 @@ const Header: React.FC<HeaderProps> = ({
         </button>
         <button 
           onClick={onSettingsClick}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+          className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600 relative"
         >
           <Settings size={24} strokeWidth={2} />
+          {hasActiveSubscriptions && (
+            <span className="absolute top-1 right-1 w-3 h-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full animate-pulse border-2 border-white shadow-lg" />
+          )}
         </button>
       </div>
     </div>

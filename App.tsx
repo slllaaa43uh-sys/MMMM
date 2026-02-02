@@ -42,6 +42,7 @@ import {
   isNativePlatform 
 } from './services/pushNotifications';
 import { BadgeCounterService } from './services/badgeCounterService';
+import { getActivePromotions } from './services/promotionService';
 
 // Expose handleNotification for Android Native
 declare global {
@@ -91,6 +92,9 @@ const AppContent: React.FC = () => {
 
   // Network Status State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Active Subscriptions Badge State
+  const [hasActiveSubscriptions, setHasActiveSubscriptions] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -179,6 +183,25 @@ const AppContent: React.FC = () => {
       return () => scrollContainer.removeEventListener('scroll', handleScroll);
     }
   }, [lastScrollY, activeTab]);
+
+  // --- CHECK ACTIVE SUBSCRIPTIONS FOR BADGE ---
+  useEffect(() => {
+    const checkActiveSubscriptions = async () => {
+      if (!token) {
+        setHasActiveSubscriptions(false);
+        return;
+      }
+      
+      const data = await getActivePromotions();
+      setHasActiveSubscriptions(data.hasActivePromotions && data.activeCount > 0);
+    };
+    
+    checkActiveSubscriptions();
+    
+    // تحديث كل 60 ثانية
+    const interval = setInterval(checkActiveSubscriptions, 60000);
+    return () => clearInterval(interval);
+  }, [token]);
 
   // --- NOTIFICATIONS & DEEP LINKING SETUP ---
   
@@ -1125,6 +1148,7 @@ const AppContent: React.FC = () => {
                     onAIChatClick={() => setIsAIChatOpen(true)}
                     onSearchClick={() => setIsSearchOpen(true)} // Handle Search Click
                     unreadCount={unreadNotificationsCount}
+                    hasActiveSubscriptions={hasActiveSubscriptions}
                     isVisible={isHeaderVisible}
                     areActionsVisible={areActionsVisible}
                   />

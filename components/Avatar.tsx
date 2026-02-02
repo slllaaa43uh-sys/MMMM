@@ -10,10 +10,12 @@ interface AvatarProps {
 
 const Avatar: React.FC<AvatarProps> = ({ name, src, className = 'w-10 h-10', textClassName = 'text-lg' }) => {
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Reset error state if src changes
+  // Reset states when src changes
   useEffect(() => {
     setImageError(false);
+    setImageLoaded(false);
   }, [src]);
 
   const getFirstLetter = (nameStr: string): string => {
@@ -45,12 +47,25 @@ const Avatar: React.FC<AvatarProps> = ({ name, src, className = 'w-10 h-10', tex
 
   if (isValidSrc && !imageError) {
     return (
-      <img
-        src={src}
-        alt={name}
-        className={`${className} rounded-full object-cover`}
-        onError={() => setImageError(true)}
-      />
+      <>
+        {/* Show fallback until image is loaded */}
+        {!imageLoaded && (
+          <div
+            className={`${className} rounded-full flex items-center justify-center text-white font-bold select-none`}
+            style={{ background: generateGradient(name) }}
+          >
+            <span className={textClassName}>{initial}</span>
+          </div>
+        )}
+        {/* Image hidden until fully loaded */}
+        <img
+          src={src}
+          alt={name}
+          className={`${className} rounded-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0 absolute'}`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageError(true)}
+        />
+      </>
     );
   }
 

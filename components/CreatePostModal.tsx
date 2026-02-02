@@ -418,10 +418,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
               )}
           </div>
 
-          <div 
-            className={`fixed inset-0 bg-black/40 z-[40] transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-            onClick={() => setIsDrawerOpen(false)}
-          />
+          {/* backdrop removed to prevent accidental closes when keyboard is dismissed */}
 
           <div 
             className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-[#121212] z-[50] rounded-t-3xl shadow-[0_-5px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_-5px_30px_rgba(0,0,0,0.5)] flex flex-col h-[70vh] transition-transform duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] will-change-transform transform-gpu border-t border-gray-100 dark:border-gray-800`}
@@ -785,7 +782,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
        {isUrgentDrawerOpen && (
           <>
-            <div className="fixed inset-0 bg-black/40 z-[120]" onClick={() => setIsUrgentDrawerOpen(false)} />
+
             <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#121212] z-[130] rounded-t-3xl transition-transform animate-in slide-in-from-bottom duration-300 flex flex-col shadow-2xl border-t-4 border-red-500">
                <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
                   <span className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2"><Zap size={20} className="text-red-500 fill-current" />{t('select_urgent_type')}</span>
@@ -803,7 +800,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
        {/* NEW: Urgent Employer Warning Modal */}
        {showUrgentWarning && createPortal(
           <div className="fixed inset-0 z-[10005] flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setShowUrgentWarning(false)} />
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" />
               <div className="bg-white dark:bg-gray-900 rounded-[1.5rem] w-full max-w-sm relative z-10 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden border border-gray-100 dark:border-gray-800">
                   <div className="p-6 text-center">
                       <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-blue-50/50 dark:ring-blue-900/10 animate-bounce">
@@ -829,7 +826,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
        {isPremiumDrawerOpen && (
           <>
-            <div className="fixed inset-0 bg-black/40 z-[120] transition-opacity" onClick={() => setIsPremiumDrawerOpen(false)} />
+
             <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#121212] z-[130] rounded-t-3xl transition-transform animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[70vh] shadow-2xl">
                <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
                   <span className="font-bold text-lg text-gray-900 dark:text-white">{t('premium_title')}</span>
@@ -846,7 +843,6 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
        {isCountryDrawerOpen && (
           <>
-            <div className="fixed inset-0 bg-black/40 z-[120]" onClick={() => setIsCountryDrawerOpen(false)} />
             <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#121212] z-[130] rounded-t-3xl h-[60vh] flex flex-col animate-in slide-in-from-bottom duration-300">
                <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
                   <span className="font-bold text-gray-800 dark:text-white">{t('location_select_country')}</span>
@@ -863,7 +859,6 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ onClose, onPostSubmit
 
        {isCityDrawerOpen && selectedCountry && (
           <>
-            <div className="fixed inset-0 bg-black/40 z-[120]" onClick={() => setIsCityDrawerOpen(false)} />
             <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#121212] z-[130] rounded-t-3xl h-[60vh] flex flex-col animate-in slide-in-from-bottom duration-300">
                <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
                   <span className="font-bold text-gray-800 dark:text-white">{t('location_cities_in')} {getSelectedCountryDisplay()}</span>

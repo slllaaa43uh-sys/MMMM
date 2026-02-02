@@ -1,13 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, CreditCard, Languages, Moon, AlertTriangle, 
   Lock, HelpCircle, Info, BellRing, ChevronLeft, LogOut, ShieldAlert, Send, Loader2,
   Cpu, Nfc, Coins, Skull, Check, Gift, Briefcase, DollarSign, UserCheck, Link, ArrowLeft
 } from 'lucide-react';
 import Avatar from './Avatar';
+import SubscriptionsView from './SubscriptionsView';
 import { API_BASE_URL } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getActivePromotions } from '../services/promotionService';
 
 interface SettingsViewProps {
   onClose: () => void;
@@ -21,6 +23,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
   const { t, language, setLanguage } = useLanguage();
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<'none' | 'warnings' | 'about' | 'report_problem' | 'wallet' | 'warning_notifications' | 'language_select'>('none');
+  
+  // Subscriptions View State
+  const [isSubscriptionsOpen, setIsSubscriptionsOpen] = useState(false);
+  const [hasActiveSubscriptions, setHasActiveSubscriptions] = useState(false);
   
   // Privacy Policy View State
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -40,6 +46,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
   // Format avatar URL if needed
   const avatarSrc = userAvatar ? (userAvatar.startsWith('http') ? userAvatar : `${API_BASE_URL}${userAvatar}`) : null;
 
+  // جلب حالة الاشتراكات النشطة
+  useEffect(() => {
+    const checkActiveSubscriptions = async () => {
+      const data = await getActivePromotions();
+      setHasActiveSubscriptions(data.hasActivePromotions && data.activeCount > 0);
+    };
+    
+    checkActiveSubscriptions();
+    
+    // تحديث كل 30 ثانية
+    const interval = setInterval(checkActiveSubscriptions, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleProfileSectionClick = () => {
       const token = localStorage.getItem('token');
       if (token) {
@@ -51,7 +71,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
   };
 
   const settingsItems = [
-    { id: 1, title: t('settings_subscriptions'), icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50', action: () => setActiveModal('wallet') },
+    { 
+      id: 1, 
+      title: t('settings_subscriptions'), 
+      icon: CreditCard, 
+      color: 'text-purple-600', 
+      bg: 'bg-purple-50', 
+      action: () => setIsSubscriptionsOpen(true),
+      badge: hasActiveSubscriptions
+    },
     { id: 2, title: t('settings_language'), icon: Languages, color: 'text-blue-600', bg: 'bg-blue-50', action: () => setActiveModal('language_select') },
     { id: 3, title: t('settings_dark_mode'), icon: Moon, color: 'text-indigo-600', bg: 'bg-indigo-50', action: () => {} }, // Toggle handled in render
     { id: 4, title: t('settings_warnings'), icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50', action: () => setActiveModal('warnings') },
@@ -445,7 +473,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
               <button 
                 key={item.id}
                 onClick={item.action}
-                className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all active:scale-95 group"
+                className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all active:scale-95 group relative"
               >
                 <div className={`p-2 rounded-lg ${item.bg} group-hover:scale-105 transition-transform shrink-0`}>
                   <item.icon size={20} className={item.color} />
@@ -454,6 +482,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
                 <span className="text-xs font-bold text-gray-700 text-start line-clamp-1">
                   {item.title}
                 </span>
+                
+                {/* Badge للاشتراكات النشطة */}
+                {item.badge && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full animate-pulse border-2 border-white shadow-lg" />
+                )}
               </button>
             );
           })}
@@ -522,6 +555,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onClose, onProfileClick, on
              </div>
           </div>
         </div>
+      )}
+
+      {/* Subscriptions View */}
+      {isSubscriptionsOpen && (
+        <SubscriptionsView onClose={() => setIsSubscriptionsOpen(false)} />
       )}
     </div>
   );
